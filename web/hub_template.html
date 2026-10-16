@@ -1,0 +1,947 @@
+<meta charset="utf-8">
+<title>Modeling Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: research bench. Sticky tab bar; a readable prose column; wide figure panels with their controls inline. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --sunk:#EBEFF4; --line:#D9DFE7; --line-2:#C5CDD8;
+  --ink:#12161D; --ink-2:#465061; --mute:#6E7787;
+  --accent:#0E6E69; --accent-ink:#FFFFFF; --accent-soft:#D9EEEC;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --neutral:#8A93A1;
+  --band:rgba(42,120,214,.16); --band-null:rgba(110,119,135,.16);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1116; --surface:#161A21; --sunk:#1C212A; --line:#29303B; --line-2:#3A4250;
+    --ink:#E8ECF2; --ink-2:#AEB6C3; --mute:#828C9B;
+    --accent:#54C2BA; --accent-ink:#06201E; --accent-soft:#16312F;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --neutral:#7D8694;
+    --band:rgba(57,135,229,.22); --band-null:rgba(130,140,155,.2);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1116; --surface:#161A21; --sunk:#1C212A; --line:#29303B; --line-2:#3A4250;
+  --ink:#E8ECF2; --ink-2:#AEB6C3; --mute:#828C9B;
+  --accent:#54C2BA; --accent-ink:#06201E; --accent-soft:#16312F;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --neutral:#7D8694;
+  --band:rgba(57,135,229,.22); --band-null:rgba(130,140,155,.2);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px}
+h1,h2,h3{font-family:var(--f-display);font-weight:650;letter-spacing:-.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5vw,46px);line-height:1.08}
+h2{font-size:clamp(22px,3vw,28px);line-height:1.2}
+h3{font-size:18px;line-height:1.3}
+p{margin:0}
+.prose{max-width:68ch;display:grid;gap:12px;color:var(--ink-2)}
+.prose b,.prose strong{color:var(--ink);font-weight:600}
+.eyebrow{font:500 12px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;gap:20px;min-height:56px;flex-wrap:wrap;padding-block:6px}
+.brand{font:700 18px/1 var(--f-display);display:flex;align-items:center;gap:10px;white-space:nowrap}
+.brand svg{flex:none}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{appearance:none;border:1px solid transparent;background:none;color:var(--ink-2);font:500 14px/1 var(--f-body);padding:9px 12px;border-radius:8px;cursor:pointer}
+.tab:hover{background:var(--sunk);color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tab:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tab .k{font-family:var(--f-mono);font-size:11px;opacity:.7;margin-right:6px}
+
+main{padding-block:36px 72px}
+section.view{display:grid;gap:40px}
+
+/* hero */
+.hero{display:grid;gap:18px;padding-top:8px}
+.hero .lede{font-size:18px;line-height:1.55;color:var(--ink-2);max-width:62ch}
+.hero .lede b{color:var(--ink);font-weight:600}
+
+/* matrix */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font:500 12px/1.3 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--mute);background:var(--sunk)}
+td.m{font-weight:600;white-space:nowrap}
+td .dash{color:var(--line-2)}
+td.x{color:var(--ink-2)}
+td.x.cross{background:var(--accent-soft);color:var(--ink)}
+.matrix td{min-width:150px}
+.matrix td.m{min-width:170px}
+
+/* cards */
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:grid;gap:14px;align-content:start;min-width:0}
+.card .src{font:500 12px/1.3 var(--f-mono);color:var(--mute)}
+.card p{color:var(--ink-2)}
+.kv{display:grid;gap:8px;margin:0}
+.kv div{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:8px}
+.kv dt{color:var(--ink-2);font-size:14px}
+.kv dd{margin:0;font:500 14px/1.4 var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.card .go{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.btn{appearance:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);font:500 14px/1 var(--f-body);padding:9px 14px;border-radius:8px;cursor:pointer;text-decoration:none}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+
+/* finding strip */
+.finding{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline}
+.finding .big{font:600 30px/1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.finding .big small{font-size:15px;color:var(--mute);font-weight:500}
+.finding p{grid-column:1/-1}
+
+/* figure panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 14px;display:grid;gap:12px;min-width:0}
+.panel header{display:grid;gap:4px}
+.panel header p{color:var(--ink-2);font-size:14px;max-width:72ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
+.ctl{display:grid;gap:4px;min-width:170px;flex:1 1 170px;max-width:280px}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--ink-2)}
+.ctl label output{font-family:var(--f-mono);color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--surface);color:var(--ink-2);font:500 13px/1 var(--f-body);padding:8px 11px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line-2)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.readout{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;color:var(--ink-2)}
+.readout b{font:500 15px/1.2 var(--f-mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;background:currentColor}
+.legend i.dot{width:9px;height:9px;border-radius:50%}
+.legend i.box{width:12px;height:10px;border-radius:2px}
+.cap{font-size:13px;color:var(--mute);max-width:80ch}
+
+/* plots */
+.plot-host{position:relative;width:100%;min-width:0}
+svg.plot{display:block;overflow:visible;font-family:var(--f-mono);font-size:11px}
+svg.plot .grid line{stroke:var(--line);stroke-width:1}
+svg.plot .axis text{fill:var(--mute)}
+svg.plot .axis .lbl{fill:var(--ink-2);font-family:var(--f-body);font-size:12px}
+svg.plot .ref{stroke:var(--line-2);stroke-width:1.2;stroke-dasharray:4 4}
+svg.plot .s1{stroke:var(--s1)} svg.plot .s2{stroke:var(--s2)} svg.plot .s3{stroke:var(--s3)} svg.plot .sn{stroke:var(--neutral)}
+svg.plot .f1{fill:var(--s1)} svg.plot .f2{fill:var(--s2)} svg.plot .f3{fill:var(--s3)} svg.plot .fn{fill:var(--neutral)}
+svg.plot .band{fill:var(--band)} svg.plot .band-null{fill:var(--band-null)}
+svg.plot .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+svg.plot .thin{stroke-width:1.2}
+svg.plot .dashed{stroke-dasharray:5 4}
+svg.plot .ring{stroke:var(--surface);stroke-width:2}
+svg.plot .dlabel{font-family:var(--f-body);font-size:12px;fill:var(--ink-2)}
+svg.plot .hit{fill:transparent;cursor:crosshair}
+svg.plot .xh{stroke:var(--ink-2);stroke-width:1;stroke-dasharray:2 3}
+svg.plot .sel{stroke:var(--ink);stroke-width:2}
+.tip{position:absolute;pointer-events:none;z-index:5;background:var(--ink);color:var(--bg);font:400 12px/1.45 var(--f-body);padding:7px 9px;border-radius:6px;max-width:240px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.tip b{font-weight:600}
+.tip .n{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* study headers inside crossover */
+.study{display:grid;gap:18px}
+.study-h{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:baseline;border-top:2px solid var(--ink);padding-top:14px}
+.study-h .tag{font:500 12px/1.3 var(--f-mono);color:var(--mute);letter-spacing:.06em;text-transform:uppercase;grid-row:span 2}
+.study-h h2{grid-column:2}
+.study-h p{grid-column:2;color:var(--ink-2);max-width:72ch}
+@media (max-width:640px){.study-h{grid-template-columns:1fr}.study-h .tag{grid-row:auto}.study-h h2,.study-h p{grid-column:1}}
+.verdict{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.verdict{grid-template-columns:1fr}}
+.verdict div{background:var(--sunk);border-radius:8px;padding:12px 14px;display:grid;gap:4px}
+.verdict .q{font-size:13px;color:var(--mute)}
+.verdict .a{font-size:14px;color:var(--ink)}
+.verdict .a b{font-weight:600}
+
+pre.tree{margin:0;font:400 13px/1.6 var(--f-mono);color:var(--ink-2);background:var(--sunk);border-radius:8px;padding:14px 16px;overflow-x:auto}
+pre.tree b{color:var(--ink);font-weight:500}
+pre.tree i{font-style:normal;color:var(--accent)}
+details{border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+details summary{cursor:pointer;padding:10px 14px;font-size:14px;color:var(--ink-2)}
+details[open] summary{border-bottom:1px solid var(--line)}
+details .tbl-wrap{border:0;border-radius:0}
+.status{display:inline-flex;align-items:center;gap:6px;font:500 12px/1 var(--f-mono);padding:4px 8px;border-radius:999px;background:var(--sunk);color:var(--ink-2);white-space:nowrap}
+.status.done::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--s3)}
+.status.next::before{content:"";width:7px;height:7px;border-radius:50%;border:1.5px solid var(--mute)}
+footer{border-top:1px solid var(--line);padding-block:24px;color:var(--mute);font-size:13px}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="5" cy="16" r="3" fill="var(--s1)"/><path d="M8 16 C 11 4, 14 4, 19 6" fill="none" stroke="var(--s2)" stroke-width="2.2" stroke-linecap="round"/><rect x="14" y="13" width="6" height="6" rx="1.5" fill="var(--s3)"/></svg>
+      Modeling Lab
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="t-overview" aria-controls="v-overview" data-v="overview">Overview</button>
+      <button class="tab" role="tab" id="t-spread" aria-controls="v-spread" data-v="spread"><span class="k">1</span>Spread</button>
+      <button class="tab" role="tab" id="t-shape" aria-controls="v-shape" data-v="shape"><span class="k">2</span>Shape</button>
+      <button class="tab" role="tab" id="t-markets" aria-controls="v-markets" data-v="markets"><span class="k">3</span>Markets</button>
+      <button class="tab" role="tab" id="t-crossover" aria-controls="v-crossover" data-v="crossover"><span class="k">×</span>Crossover</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================================ OVERVIEW -->
+<section class="view" id="v-overview" role="tabpanel" aria-labelledby="t-overview">
+  <div class="hero">
+    <p class="eyebrow">Tirth Chaudhari · computational modelling portfolio</p>
+    <h1>Epidemics, 3D shapes and stock markets, built on one numerical toolkit</h1>
+    <p class="lede">A handful of methods do most of the work in scientific computing: <b>ODE solvers, Monte Carlo, eigen-decompositions and least squares</b>. This project puts three of my builds on that shared core. Then it turns the epidemic and geometry tools on 33 years of real market data, to find out what they see that a forecasting model misses.</p>
+    <div class="go" style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn primary" type="button" data-goto="crossover">See the crossover study</button>
+      <a class="btn" href="#matrix">How the pieces connect</a>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <article class="card">
+      <p class="eyebrow">Pillar 1 · Spread</p>
+      <h3>How things move through a population</h3>
+      <p>Six models from the MC312 mathematical-modelling labs: drug dosing, product adoption, epidemics, rumours, radioactive decay and random walks. The solvers and charts are written from scratch.</p>
+      <dl class="kv">
+        <div><dt>1978 flu outbreak, fitted β / α</dt><dd>1.67 / 0.44 per day</dd></div>
+        <div><dt>Solver</dt><dd>RK4 + Monte Carlo</dd></div>
+        <div><dt>Models</dt><dd>6 labs</dd></div>
+      </dl>
+      <div class="go"><button class="btn" type="button" data-goto="spread">Summary</button><a class="btn" href="spread.html">Open full lab →</a></div>
+    </article>
+    <article class="card">
+      <p class="eyebrow">Pillar 2 · Shape</p>
+      <h3>Geometry processing from first principles</h3>
+      <p>ShapeLab, a NumPy/SciPy library with a FastAPI service: Fourier descriptors, statistical shape models, curvature, Laplace–Beltrami spectra and skeletal skinning.</p>
+      <dl class="kv">
+        <div><dt>Jawline variation in 3 modes</dt><dd>90.4%</dd></div>
+        <div><dt>Cat mesh rebuilt to 10% error</dt><dd>15 of 3,400 eigenfns</dd></div>
+        <div><dt>Tests</dt><dd>116 pytest + Postman</dd></div>
+      </dl>
+      <div class="go"><button class="btn" type="button" data-goto="shape">Summary</button><a class="btn" href="shape.html">Open full lab →</a></div>
+    </article>
+    <article class="card">
+      <p class="eyebrow">Pillar 3 · Markets</p>
+      <h3>Can machine learning predict the stock market?</h3>
+      <p>A walk-forward study of ARIMA, ridge, gradient boosting, LSTM and GRU on six stocks and the VIX, 1993–2026, with the statistical tests to tell skill from luck.</p>
+      <dl class="kv">
+        <div><dt>Best next-day return R²</dt><dd>+0.58%</dd></div>
+        <div><dt>Best next-day volatility R²</dt><dd>59%</dd></div>
+        <div><dt>Out-of-sample ticker-days</dt><dd>17,766</dd></div>
+      </dl>
+      <div class="go"><button class="btn" type="button" data-goto="markets">Summary</button><a class="btn" href="markets.html">Open full lab →</a></div>
+    </article>
+  </div>
+
+  <div class="study" id="matrix">
+    <div class="study-h"><span class="tag">Shared core</span><h2>One method, several jobs</h2>
+      <p>Each row is a numerical method; each column shows where it does real work. The shaded column is the new study, which runs each tool on a problem from a different pillar.</p></div>
+    <div class="tbl-wrap">
+      <table class="matrix">
+        <thead><tr><th>Method</th><th>Spread</th><th>Shape</th><th>Markets</th><th>Crossover</th></tr></thead>
+        <tbody>
+          <tr><td class="m">Differential equations</td><td class="x">SIR, rumour, Bass, dosing (RK4)</td><td class="x"><span class="dash">—</span></td><td class="x"><span class="dash">—</span></td><td class="x cross">Fear clears like a drug dose (exact solution)</td></tr>
+          <tr><td class="m">Monte Carlo, random walks</td><td class="x">Decay, coin tosses, 1-D and 2-D walks</td><td class="x"><span class="dash">—</span></td><td class="x">Random-walk benchmark</td><td class="x cross">2,000 simulated 33-year markets</td></tr>
+          <tr><td class="m">Eigen-decomposition, PCA</td><td class="x"><span class="dash">—</span></td><td class="x">Shape modes, Laplace–Beltrami basis</td><td class="x"><span class="dash">—</span></td><td class="x cross">Shape modes of 68 market crashes</td></tr>
+          <tr><td class="m">Fourier analysis</td><td class="x"><span class="dash">—</span></td><td class="x">Outline descriptors, Parseval error</td><td class="x"><span class="dash">—</span></td><td class="x cross"><span class="dash">—</span></td></tr>
+          <tr><td class="m">Least-squares fitting</td><td class="x">β, α from 1978 flu data</td><td class="x">Procrustes alignment</td><td class="x">Ridge, HAR-RV</td><td class="x cross">One- vs two-compartment clearance</td></tr>
+          <tr><td class="m">Hypothesis testing</td><td class="x"><span class="dash">—</span></td><td class="x">Gauss–Bonnet, spectral checks</td><td class="x">Diebold–Mariano, Kupiec</td><td class="x cross">Lo–MacKinlay variance ratio</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="study">
+    <div class="study-h"><span class="tag">Crossover</span><h2>What the other two pillars found in market data</h2>
+      <p>All three results come from running <span class="mono">crossover/crossover.py</span> on daily SPY, VIX and five large stocks, Jan 1993 to 13 Oct 2026.</p></div>
+    <div class="grid3">
+      <article class="card finding">
+        <span class="eyebrow" style="grid-column:1/-1">Random walk · MC312 Labs 9–10</span>
+        <span class="big" id="ov-tails">52 <small>vs 0.5</small></span><span></span>
+        <p>Days beyond 4σ in SPY against the number a random walk predicts. The walk also gets the 2008 drawdown about right: one simulated history in eight has a deeper one.</p>
+      </article>
+      <article class="card finding">
+        <span class="eyebrow" style="grid-column:1/-1">Dosing · MC312 Lab 2</span>
+        <span class="big" id="ov-dose">2.1 <small>/ 44 days</small></span><span></span>
+        <p>Half-lives of a VIX spike. Like many drugs, fear clears in two phases. Four-fifths of a spike clears with a half-life of about two days, and the last fifth with a half-life of about two months. Two compartments fit the median spike with R² 0.95; one compartment gets 0.63.</p>
+      </article>
+      <article class="card finding">
+        <span class="eyebrow" style="grid-column:1/-1">Shape model · ShapeLab</span>
+        <span class="big" id="ov-shape">61% <small>in 3 modes</small></span><span></span>
+        <p>The share of variation in the shapes of 68 completed crashes that three shape modes explain: V vs U, early vs late bottom, and a double dip. Deeper crashes lean U-shaped.</p>
+      </article>
+    </div>
+  </div>
+
+  <div class="study">
+    <div class="study-h"><span class="tag">Repo</span><h2>How the code fits together</h2>
+      <p>This page is the demo. The tree below is the target layout. The status column says what already runs and what comes next.</p></div>
+    <div class="grid2">
+      <pre class="tree" aria-label="Repository layout"><b>modeling-lab/</b>
+  <b>core/</b>        rk4, monte_carlo, spectral, pca, fitting   <i>shared</i>
+  <b>spread/</b>      MC312 models, ported to Python + tests
+  <b>shape/</b>       ShapeLab library + FastAPI service
+  <b>markets/</b>     stock-lab walk-forward study
+  <b>crossover/</b>   crossover.py → results/crossover.json
+  <b>web/</b>         this hub + one page per pillar
+  <b>data/</b>        prices (Yahoo Finance), meshes, outlines</pre>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Piece</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Crossover study on real data</td><td><span class="status done">runs</span></td></tr>
+            <tr><td>ShapeLab library, API, 116 tests</td><td><span class="status done">runs</span></td></tr>
+            <tr><td>Markets walk-forward notebook</td><td><span class="status done">runs</span></td></tr>
+            <tr><td>Spread models (browser, JS)</td><td><span class="status done">runs</span></td></tr>
+            <tr><td>Spread models in Python + tests</td><td><span class="status next">next</span></td></tr>
+            <tr><td>Extract <span class="mono">core/</span> from the three pillars</td><td><span class="status next">next</span></td></tr>
+            <tr><td>One CI pipeline, one deploy</td><td><span class="status next">next</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ SPREAD -->
+<section class="view" id="v-spread" role="tabpanel" aria-labelledby="t-spread" hidden>
+  <div class="study-h"><span class="tag">Pillar 1</span><h2>Spread: six MC312 models of how things move</h2>
+    <p>Each lab models something spreading: a drug through the blood, a product through a market, flu through a school, a rumour through a crowd, decay through atoms, a walker through space. The full lab has every model with live sliders and animations.</p></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Lab</th><th>Model</th><th>Equation</th><th>Reused in crossover</th></tr></thead>
+      <tbody>
+        <tr><td class="num">2</td><td>Drug dosing</td><td class="mono">dC/dt = −kC + doses</td><td>VIX clearance</td></tr>
+        <tr><td class="num">4</td><td>Bass adoption</td><td class="mono">dN/dt = (p + qN/M)(M − N)</td><td><span class="dash">—</span></td></tr>
+        <tr><td class="num">5–6</td><td>SIR epidemic</td><td class="mono">S′ = −βSI/N, I′ = βSI/N − αI</td><td><span class="dash">—</span></td></tr>
+        <tr><td class="num">7–8</td><td>Rumour (Daley–Kendall)</td><td class="mono">s′ = −βsx, x′ = βsx − γx(x + r)</td><td><span class="dash">—</span></td></tr>
+        <tr><td class="num">9</td><td>Monte Carlo chance</td><td class="mono">N(t) = N₀e^(−λt)</td><td>Drawdown simulation</td></tr>
+        <tr><td class="num">10</td><td>Random walk</td><td class="mono">E[Xₙ] = 0, Var[Xₙ] = nσ²</td><td>Random-walk tests</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <header><h3>Flu in a boarding school, January 1978</h3>
+      <p>763 boys, one initial case. Dots are the real daily counts of boys in bed; the line is the SIR model, integrated with the page's RK4 solver. Drag β and α, or fit them by least squares.</p></header>
+    <div class="controls">
+      <div class="ctl"><label for="sir-b">Transmission β <output id="sir-bo"></output></label><input id="sir-b" type="range" min="0.6" max="3" step="0.01" value="1.2"></div>
+      <div class="ctl"><label for="sir-a">Recovery α <output id="sir-ao"></output></label><input id="sir-a" type="range" min="0.1" max="1" step="0.01" value="0.3"></div>
+      <button class="btn primary" type="button" id="sir-fit">Fit to the 1978 data</button>
+    </div>
+    <div class="readout"><span>R₀ = β/α <b id="sir-r0"></b></span><span>RMSE <b id="sir-rmse"></b> boys</span><span>Peak <b id="sir-peak"></b></span></div>
+    <div class="legend"><span style="color:var(--s1)"><i class="dot"></i>Boys in bed (1978)</span><span style="color:var(--s2)"><i></i>SIR model, infected</span></div>
+    <div class="plot-host" id="p-sir"></div>
+  </div>
+  <div><a class="btn primary" href="spread.html">Open the full Spread lab →</a></div>
+</section>
+
+<!-- ============================================================ SHAPE -->
+<section class="view" id="v-shape" role="tabpanel" aria-labelledby="t-shape" hidden>
+  <div class="study-h"><span class="tag">Pillar 2</span><h2>Shape: geometry processing from first principles</h2>
+    <p>ShapeLab started as IT575 Computational Shape Modeling coursework and grew into a tested library with a public HTTP API. The full lab has a live 3D viewer for the spectral and skinning modules.</p></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Module</th><th>What it does</th><th>Result on the included data</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">fourier</td><td>Fourier descriptors of closed 2D curves</td><td>0.7% of the coefficients rebuild the bird within 10% error</td></tr>
+        <tr><td class="mono">procrustes</td><td>Generalised Procrustes + PCA shape model</td><td>3 modes explain 90.4% of 300 jawlines</td></tr>
+        <tr><td class="mono">curvature</td><td>Fundamental forms; discrete curvature on meshes</td><td>Exact Gauss–Bonnet on closed meshes</td></tr>
+        <tr><td class="mono">spectral</td><td>Cotangent Laplacian, eigenbasis, segmentation</td><td>15 of 3,400 eigenfunctions rebuild the cat within 10%</td></tr>
+        <tr><td class="mono">skinning</td><td>LBS, quaternion and dual-quaternion skinning</td><td>DQS keeps 100% of a cross-section under a 180° twist; LBS keeps under 1%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <header><h3>Fourier descriptors: a bird outline from a handful of numbers</h3>
+      <p>The outline's 843 points become one complex signal, x + iy. Keep only the lowest-frequency coefficients and invert. Parseval's theorem gives the error of every choice from one transform.</p></header>
+    <div class="controls">
+      <div class="ctl"><label for="fd-k">Coefficients kept <output id="fd-ko"></output></label><input id="fd-k" type="range" min="1" max="60" step="1" value="6"></div>
+    </div>
+    <div class="readout"><span>Share of coefficients <b id="fd-share"></b></span><span>Relative error <b id="fd-err"></b></span></div>
+    <div class="legend"><span style="color:var(--s1)"><i></i>Original outline</span><span style="color:var(--s2)"><i></i>Reconstruction</span></div>
+    <div class="plot-host" id="p-fd"></div>
+  </div>
+  <div><a class="btn primary" href="shape.html">Open the full Shape lab →</a></div>
+</section>
+
+<!-- ============================================================ MARKETS -->
+<section class="view" id="v-markets" role="tabpanel" aria-labelledby="t-markets" hidden>
+  <div class="study-h"><span class="tag">Pillar 3</span><h2>Markets: the direction is noise, the size is not</h2>
+    <p>For each test year from 2015 to 2026, every model is refit on data strictly before that year. Scores below are pooled over six tickers and <span id="mk-days"></span> out-of-sample ticker-days.</p></div>
+  <div class="grid2">
+    <div class="panel">
+      <header><h3>Next-day return, out-of-sample R²</h3><p>The best model explains about half a percent. Every model calls the direction worse than "always up" (<span id="mk-up"></span>).</p></header>
+      <div class="plot-host" id="p-mk-ret"></div>
+    </div>
+    <div class="panel">
+      <header><h3>Next-day volatility, R² of log variance</h3><p>The same data, a different target: simple models explain more than half of tomorrow's volatility.</p></header>
+      <div class="plot-host" id="p-mk-vol"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <header><h3>The LSTM trap</h3><p>The popular "LSTM on prices" tutorial looks like a near-perfect fit. A model that says tomorrow equals today does better.</p></header>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Model on SPY price level</th><th>R²</th><th>RMSE ($)</th></tr></thead>
+      <tbody id="mk-trap"></tbody>
+    </table></div>
+  </div>
+  <div><a class="btn primary" href="markets.html">Open the full Markets lab →</a></div>
+</section>
+
+<!-- ============================================================ CROSSOVER -->
+<section class="view" id="v-crossover" role="tabpanel" aria-labelledby="t-crossover" hidden>
+  <div class="prose">
+    <p class="eyebrow">New study · crossover/crossover.py</p>
+    <h2 style="color:var(--ink)">Markets through the other two lenses</h2>
+    <p>The Markets pillar asks whether a model can forecast tomorrow. This study asks three different questions, each with a tool built for another field. Data: daily SPY, VIX and five large stocks (AAPL, MSFT, NVDA, JPM, XOM), <span id="cx-span"></span>, adjusted prices from Yahoo Finance.</p>
+  </div>
+
+  <!-- A: random walk -->
+  <div class="study">
+    <div class="study-h"><span class="tag">A · Labs 9–10</span><h2>Is the market the random walk from Lab 10?</h2>
+      <p>Lab 10's walker takes independent steps of a fixed size. Give it SPY's average daily step and spread, and it should look like SPY. By eye it does. Four tests show where it fails.</p></div>
+    <div class="panel">
+      <header><h3>33 years of SPY next to 20 random walks with the same drift and volatility</h3>
+        <p>Growth of $1 on a log scale. Each grey path takes independent weekly steps with SPY's mean and standard deviation.</p></header>
+      <div class="controls"><button class="btn" type="button" id="rw-new">Draw 20 new walks</button>
+        <div class="readout"><span>SPY daily mean <b id="rw-mu"></b></span><span>daily σ <b id="rw-sd"></b></span><span>SPY ends at <b id="rw-end"></b></span><span>Walks end between <b id="rw-range"></b></span></div></div>
+      <div class="legend"><span style="color:var(--s1)"><i></i>SPY, total return</span><span style="color:var(--neutral)"><i></i>Random walks</span></div>
+      <div class="plot-host" id="p-rw"></div>
+    </div>
+    <div class="panel">
+      <header><h3>Fat tails: how often a day moves more than z standard deviations</h3>
+        <p>Bars count real SPY days by size; the line is what a normal random walk expects. The vertical axis is logarithmic, so the gap at the edges is a factor of ten or more. Switch to volatility-scaled returns, where each day is divided by the volatility known the evening before.</p></header>
+      <div class="controls"><div class="seg" role="group" aria-label="Return type"><button type="button" id="tl-raw" aria-pressed="true">Raw daily returns</button><button type="button" id="tl-sc" aria-pressed="false">Volatility-scaled</button></div>
+        <div class="readout"><span>Days beyond 4σ <b id="tl-obs"></b></span><span>Normal predicts <b id="tl-exp"></b></span><span>Kurtosis <b id="tl-k"></b> (normal: 3)</span></div></div>
+      <div class="legend"><span style="color:var(--s1)"><i class="box"></i>SPY days</span><span style="color:var(--s2)"><i></i>Normal random walk</span></div>
+      <div class="plot-host" id="p-tails"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <header><h3>Variance ratio</h3><p>A random walk's k-day variance is k times its 1-day variance, a ratio of 1. SPY's ratio falls below 1, which means small reversals. The grey band is where 95% of shuffled histories land.</p></header>
+        <div class="legend"><span style="color:var(--s1)"><i></i>SPY</span><span style="color:var(--neutral)"><i class="box"></i>Shuffled returns, 95%</span></div>
+        <div class="plot-host" id="p-vr"></div>
+        <p class="cap" id="vr-cap"></p>
+      </div>
+      <div class="panel">
+        <header><h3>Memory: autocorrelation of returns and of their size</h3><p>A random walk has no memory in either. Returns have almost none. Their size has memory that lasts months: calm follows calm and storms follow storms.</p></header>
+        <div class="legend"><span style="color:var(--s1)"><i></i>Size of return |r|</span><span style="color:var(--s2)"><i></i>Return r</span><span style="color:var(--neutral)"><i class="box"></i>No-memory band</span></div>
+        <div class="plot-host" id="p-acf"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <header><h3>Monte Carlo: how deep is the worst crash in a 33-year random walk?</h3>
+        <p>2,000 simulated SPY histories with independent normal steps. The vertical line is SPY's real maximum drawdown, Oct 2007 to Mar 2009.</p></header>
+      <div class="readout"><span>Real max drawdown <b id="md-real"></b></span><span>Median simulated <b id="md-med"></b></span><span>Simulations with a deeper crash <b id="md-pct"></b></span></div>
+      <div class="legend"><span style="color:var(--neutral)"><i class="box"></i>Simulated random walks</span><span style="color:var(--s1)"><i></i>SPY, real</span></div>
+      <div class="plot-host" id="p-mdd"></div>
+    </div>
+    <div class="verdict" id="rw-verdict"></div>
+  </div>
+
+  <!-- B: dosing -->
+  <div class="study">
+    <div class="study-h"><span class="tag">B · Lab 2</span><h2>Does fear clear like a drug dose?</h2>
+      <p>Lab 2's patient takes a dose and the body clears a fixed fraction every hour, so the level decays exponentially with a half-life. Treat each VIX spike as a dose of fear. How fast is it cleared, and does one compartment describe it?</p></div>
+    <div class="panel">
+      <header><h3>Clearance after <span id="ds-n"></span> VIX spikes</h3>
+        <p>For every spike, the fraction of the jump above the prior 3-month median still present h trading days later. The median spike, its middle 50%, and the two pharmacokinetic fits.</p></header>
+      <div class="readout" id="ds-read"></div>
+      <div class="legend"><span style="color:var(--s1)"><i></i>Median spike</span><span style="color:var(--s1)"><i class="box" style="opacity:.35"></i>Middle 50%</span><span style="color:var(--s2)"><i></i>One compartment</span><span style="color:var(--s3)"><i></i>Two compartments</span></div>
+      <div class="plot-host" id="p-clear"></div>
+      <details><summary>All <span id="ds-n2"></span> spikes, with the days each took to lose half its excess</summary><div class="tbl-wrap"><table><thead><tr><th>Peak date</th><th>VIX at peak</th><th>Prior median</th><th>Days to half</th></tr></thead><tbody id="ds-events"></tbody></table></div></details>
+    </div>
+    <div class="panel">
+      <header><h3>Rebuild 33 years of VIX from doses and clearance alone</h3>
+        <p>Only days with a jump above the threshold count as doses; on every other day the excess just decays toward the long-run median. Nothing else in the model knows what the market did.</p></header>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Compartments"><button type="button" id="dm-1" aria-pressed="true">One compartment</button><button type="button" id="dm-2" aria-pressed="false">Two compartments</button></div>
+        <div class="ctl"><label for="dm-hl">Half-life <output id="dm-hlo"></output></label><input id="dm-hl" type="range" min="1" max="60" step="0.5" value="12.5"></div>
+        <div class="ctl"><label for="dm-th">Dose threshold, daily VIX jump <output id="dm-tho"></output></label><input id="dm-th" type="range" min="1" max="8" step="0.1" value="3.4"></div>
+      </div>
+      <div class="controls"><div class="seg" role="group" aria-label="Window" id="dm-win"><button type="button" data-w="all" aria-pressed="true">1993–2026</button><button type="button" data-w="2008" aria-pressed="false">2008</button><button type="button" data-w="2020" aria-pressed="false">2020</button><button type="button" data-w="2025" aria-pressed="false">2025</button></div>
+        <div class="readout"><span>Doses <b id="dm-n"></b></span><span>R², all days <b id="dm-r2"></b></span><span>R², this window <b id="dm-r2w"></b></span></div></div>
+      <div class="legend"><span style="color:var(--s1)"><i></i>VIX, real</span><span style="color:var(--s2)"><i></i>Doses + clearance model</span></div>
+      <div class="plot-host" id="p-dose"></div>
+      <p class="cap" id="dm-cap"></p>
+    </div>
+    <div class="verdict" id="ds-verdict"></div>
+  </div>
+
+  <!-- C: shapes -->
+  <div class="study">
+    <div class="study-h"><span class="tag">C · ShapeLab</span><h2>Do market crashes have a shape?</h2>
+      <p>ShapeLab builds a statistical model of jawlines: align the outlines, then find the few directions they vary in. The same recipe works on crashes. Each completed drawdown runs from its peak back to that peak. Stretch time to 0–1, scale the depth to 1, and sample 48 landmarks. Rotation is left out, because time and price can't be swapped.</p></div>
+    <div class="grid2">
+      <div class="panel">
+        <header><h3>The crash shape model</h3><p>The dashed line is the mean of <span id="sh-n"></span> crashes. Move along each mode in standard deviations, or pick a real crash on the right to see it rebuilt from three modes.</p></header>
+        <div class="controls">
+          <div class="ctl"><label for="sh-m1">Mode 1 · U ↔ V <output id="sh-m1o"></output></label><input id="sh-m1" type="range" min="-2.5" max="2.5" step="0.1" value="0"></div>
+          <div class="ctl"><label for="sh-m2">Mode 2 · early ↔ late bottom <output id="sh-m2o"></output></label><input id="sh-m2" type="range" min="-2.5" max="2.5" step="0.1" value="0"></div>
+          <div class="ctl"><label for="sh-m3">Mode 3 · double dip ↔ single bottom <output id="sh-m3o"></output></label><input id="sh-m3" type="range" min="-2.5" max="2.5" step="0.1" value="0"></div>
+        </div>
+        <div class="legend"><span style="color:var(--neutral)"><i></i>Mean crash</span><span style="color:var(--s2)"><i></i>Shape model</span><span style="color:var(--s1)"><i></i>Selected real crash</span></div>
+        <div class="plot-host" id="p-shape"></div>
+        <p class="cap" id="sh-sel">No crash selected. Click a dot on the right.</p>
+      </div>
+      <div class="panel">
+        <header><h3>68 crashes in shape space</h3><p>Each dot is one completed drawdown, placed by its first two mode scores. Click a dot to load it.</p></header>
+        <div class="legend"><span style="color:var(--s1)"><i class="dot"></i>SPY, drawdowns ≥ 10%</span><span style="color:var(--s3)"><i class="dot"></i>Single stocks, ≥ 20%</span></div>
+        <div class="plot-host" id="p-scatter"></div>
+        <div class="readout" id="sh-var"></div>
+      </div>
+    </div>
+    <div class="verdict" id="sh-verdict"></div>
+  </div>
+
+  <div class="panel">
+    <header><h3>Limits of this study</h3></header>
+    <div class="prose" style="max-width:none">
+      <p>The variance-ratio test is significant on 1993–2026 as a whole, but weakest in the most recent decade (see the note under the chart). Treat it as a description of the past, not a trading signal.</p>
+      <p>The dose model is first-order clearance toward a fixed median. Mathematically it is a thresholded AR(1) process, and the pharmacology is an analogy that happens to fit, not a mechanism.</p>
+      <p>Crash shapes include only drawdowns that recovered, which leaves out stocks that never came back. All six stocks are large companies that exist today.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">Modeling Lab · Tirth Chaudhari · Educational research, not investment advice · Market data: Yahoo Finance, frozen 13 Oct 2026 · Flu data: BMJ, 1978</div></footer>
+
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('data').textContent);
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const NS = 'http://www.w3.org/2000/svg';
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fdate = s => { const [y, m, d] = s.split('-'); return `${+d} ${MON[+m - 1]} ${y}`; };
+
+/* ---------------------------------------------------------------- plotting kit */
+function E(tag, attrs, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function niceTicks(a, b, n = 5) {
+  const span = b - a, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(s => s * mag).find(s => span / s <= n) || mag * 10;
+  const out = []; for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+/* frame(): axes + grid in pixels of the host's real width. Returns scales and helpers. */
+function frame(host, o) {
+  host.innerHTML = '';
+  const w = Math.max(280, host.clientWidth), h = o.h || 300;
+  const M = Object.assign({ l: 50, r: 16, t: o.yl ? 30 : 12, b: o.xl ? 40 : 26 }, o.m || {});
+  const svg = E('svg', { class: 'plot', width: w, height: h, viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': o.label || '' }, host);
+  const tx = o.xlog ? Math.log10 : v => v, ty = o.ylog ? Math.log10 : v => v;
+  const X = v => M.l + (tx(v) - tx(o.x[0])) / (tx(o.x[1]) - tx(o.x[0])) * (w - M.l - M.r);
+  const Y = v => h - M.b - (ty(v) - ty(o.y[0])) / (ty(o.y[1]) - ty(o.y[0])) * (h - M.t - M.b);
+  const g = E('g', { class: 'grid' }, svg), ax = E('g', { class: 'axis' }, svg);
+  const yt = o.yt || niceTicks(o.y[0], o.y[1], o.yn || 5), xt = o.xt || niceTicks(o.x[0], o.x[1], o.xn || Math.max(3, Math.floor(w / 110)));
+  yt.forEach(v => { E('line', { x1: M.l, x2: w - M.r, y1: Y(v), y2: Y(v) }, g); const t = E('text', { x: M.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, ax); t.textContent = (o.yf || String)(v); });
+  xt.forEach(v => { const t = E('text', { x: X(v), y: h - M.b + 16, 'text-anchor': 'middle' }, ax); t.textContent = (o.xf || String)(v); });
+  E('line', { x1: M.l, x2: w - M.r, y1: h - M.b, y2: h - M.b, stroke: 'var(--line-2)' }, svg);
+  if (o.xl) { const t = E('text', { class: 'lbl', x: (M.l + w - M.r) / 2, y: h - 4, 'text-anchor': 'middle' }, ax); t.textContent = o.xl; }
+  if (o.yl) { const t = E('text', { class: 'lbl', x: 4, y: 13, 'text-anchor': 'start' }, ax); t.textContent = o.yl; }
+  const body = E('g', {}, svg);
+  const path = pts => pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join('');
+  const api = {
+    svg, body, X, Y, w, h, M,
+    line(pts, cls) { return E('path', { d: path(pts), class: 'ln ' + cls }, body); },
+    area(top, bot, cls) { const d = path(top) + bot.slice().reverse().map(p => 'L' + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join('') + 'Z'; return E('path', { d, class: cls }, body); },
+    hline(v, cls = 'ref') { return E('line', { x1: M.l, x2: w - M.r, y1: Y(v), y2: Y(v), class: cls }, body); },
+    vline(v, cls = 'ref') { return E('line', { x1: X(v), x2: X(v), y1: M.t, y2: h - M.b, class: cls }, body); },
+    text(x, y, s, attrs = {}) { const t = E('text', Object.assign({ x, y, class: 'dlabel' }, attrs), body); t.textContent = s; return t; },
+  };
+  return api;
+}
+/* Tooltip + crosshair layer: fn(xValue) -> {html, x, pts:[[x,y,cls]]} or null */
+function hover(host, P, fn) {
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; host.appendChild(tip);
+  const layer = E('g', {}, P.svg);
+  const hit = E('rect', { class: 'hit', x: P.M.l, y: P.M.t, width: P.w - P.M.l - P.M.r, height: P.h - P.M.t - P.M.b }, P.svg);
+  const inv = px => px; // callers convert using their own scale
+  const move = ev => {
+    const r = P.svg.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top;
+    const res = fn(px, py);
+    layer.innerHTML = '';
+    if (!res) { tip.hidden = true; return; }
+    if (res.cross != null) E('line', { class: 'xh', x1: res.cross, x2: res.cross, y1: P.M.t, y2: P.h - P.M.b }, layer);
+    (res.pts || []).forEach(([x, y, cls]) => E('circle', { cx: x, cy: y, r: 4.5, class: 'ring ' + cls }, layer));
+    tip.innerHTML = res.html; tip.hidden = false;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let lx = px + 14; if (lx + tw > P.w) lx = px - tw - 14;
+    let ly = py - th - 10; if (ly < 0) ly = py + 16;
+    tip.style.left = Math.max(0, lx) + 'px'; tip.style.top = ly + 'px';
+  };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => { tip.hidden = true; layer.innerHTML = ''; });
+  return hit;
+}
+const charts = new Map();
+function chart(id, draw) {
+  const host = document.getElementById(id);
+  const run = () => { if (host.clientWidth > 0) draw(host); };
+  charts.set(id, run);
+  let lastW = 0;
+  new ResizeObserver(() => { if (host.clientWidth !== lastW) { lastW = host.clientWidth; run(); } }).observe(host);
+  return run;
+}
+const nearestIdx = (arr, v) => { let lo = 0, hi = arr.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (arr[m] < v) lo = m; else hi = m; } return Math.abs(arr[lo] - v) < Math.abs(arr[hi] - v) ? lo : hi; };
+const setSeg = (btns, on) => btns.forEach(b => b.setAttribute('aria-pressed', String(b === on)));
+
+/* ---------------------------------------------------------------- tabs */
+const views = ['overview', 'spread', 'shape', 'markets', 'crossover'];
+function show(v, push) {
+  if (!views.includes(v)) v = 'overview';
+  views.forEach(k => { $('#v-' + k).hidden = k !== v; $('#t-' + k).setAttribute('aria-selected', String(k === v)); });
+  if (push) { try { history.replaceState(null, '', '#' + v); } catch (e) {} window.scrollTo({ top: 0 }); }
+  requestAnimationFrame(() => charts.forEach(run => run()));
+}
+$$('.tab').forEach(b => b.addEventListener('click', () => show(b.dataset.v, true)));
+$$('[data-goto]').forEach(b => b.addEventListener('click', () => show(b.dataset.goto, true)));
+$('a[href="#matrix"]').addEventListener('click', e => { e.preventDefault(); $('#matrix').scrollIntoView({ behavior: 'smooth' }); });
+
+/* ---------------------------------------------------------------- shared numerics (the "core") */
+function rk4(f, y0, t1, h) {               // fixed-step RK4; returns [[t, y]]
+  let y = y0.slice(), t = 0; const out = [[0, y.slice()]];
+  while (t < t1 - 1e-12) {
+    const k1 = f(t, y), k2 = f(t + h / 2, y.map((v, i) => v + h / 2 * k1[i])),
+          k3 = f(t + h / 2, y.map((v, i) => v + h / 2 * k2[i])), k4 = f(t + h, y.map((v, i) => v + h * k3[i]));
+    y = y.map((v, i) => v + h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])); t += h; out.push([t, y.slice()]);
+  }
+  return out;
+}
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+/* ---------------------------------------------------------------- SPREAD: SIR */
+const FLU = D.flu, N = 763;
+const sir = { b: 1.2, a: 0.3 };
+function sirRun(b, a) { return rk4((t, y) => { const inf = b * y[0] * y[1] / N; return [-inf, inf - a * y[1]]; }, [N - 1, 1], 20, 0.05); }
+function sirErr(b, a) { const r = sirRun(b, a); let e = 0; FLU.forEach((c, i) => { const d = r[(i + 1) * 20][1][1] - c; e += d * d; }); return Math.sqrt(e / FLU.length); }
+const drawSir = chart('p-sir', host => {
+  const r = sirRun(sir.b, sir.a), pts = r.map(([t, y]) => [t, y[1]]);
+  const ymax = Math.max(320, ...pts.map(p => p[1])) * 1.05;
+  const P = frame(host, { h: 280, x: [0, 20], y: [0, ymax], xt: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20], xl: 'Day of outbreak', yl: 'Boys infected', label: 'SIR model against 1978 flu data' });
+  P.line(pts, 's2');
+  FLU.forEach((c, i) => { E('circle', { cx: P.X(i + 1), cy: P.Y(c), r: 4.5, class: 'f1 ring' }, P.body); });
+  hover(host, P, px => {
+    const d = Math.max(1, Math.min(14, Math.round((px - P.M.l) / (P.w - P.M.l - P.M.r) * 20)));
+    const m = r[d * 20][1][1];
+    return { cross: P.X(d), pts: [[P.X(d), P.Y(FLU[d - 1]), 'f1'], [P.X(d), P.Y(m), 'f2']], html: `<b>Day ${d}</b><br>In bed: <span class="n">${FLU[d - 1]}</span><br>Model: <span class="n">${Math.round(m)}</span>` };
+  });
+  const pk = pts.reduce((a, p) => p[1] > a[1] ? p : a);
+  $('#sir-r0').textContent = fmt(sir.b / sir.a, 2);
+  $('#sir-rmse').textContent = fmt(sirErr(sir.b, sir.a), 1);
+  $('#sir-peak').textContent = `${Math.round(pk[1])} on day ${pk[0].toFixed(1)}`;
+});
+function sirSync() { $('#sir-b').value = sir.b; $('#sir-a').value = sir.a; $('#sir-bo').textContent = fmt(sir.b) + ' /day'; $('#sir-ao').textContent = fmt(sir.a) + ' /day'; drawSir(); }
+$('#sir-b').addEventListener('input', e => { sir.b = +e.target.value; sirSync(); });
+$('#sir-a').addEventListener('input', e => { sir.a = +e.target.value; sirSync(); });
+$('#sir-fit').addEventListener('click', () => {
+  let best = [Infinity, 0, 0];
+  for (let b = 0.8; b <= 3; b += 0.05) for (let a = 0.1; a <= 1; a += 0.02) { const e = sirErr(b, a); if (e < best[0]) best = [e, b, a]; }
+  const [, b0, a0] = best;
+  for (let b = b0 - 0.05; b <= b0 + 0.05; b += 0.005) for (let a = Math.max(0.1, a0 - 0.02); a <= a0 + 0.02; a += 0.002) { const e = sirErr(b, a); if (e < best[0]) best = [e, b, a]; }
+  sir.b = +best[1].toFixed(2); sir.a = +best[2].toFixed(2); sirSync();
+});
+sirSync();
+
+/* ---------------------------------------------------------------- SHAPE: Fourier descriptors */
+const BIRD = D.bird, NB = BIRD.length;
+const FD = (() => {   // plain DFT of c[n] = x + iy; O(N^2) is fine for 843 points
+  const re = new Float64Array(NB), im = new Float64Array(NB);
+  for (let k = 0; k < NB; k++) { let sr = 0, si = 0; for (let n = 0; n < NB; n++) { const a = -2 * Math.PI * k * n / NB, c = Math.cos(a), s = Math.sin(a); sr += BIRD[n][0] * c - BIRD[n][1] * s; si += BIRD[n][0] * s + BIRD[n][1] * c; } re[k] = sr; im[k] = si; }
+  const order = [0]; for (let f = 1; order.length < NB; f++) { order.push(f % NB); if (order.length < NB) order.push((NB - f) % NB); }
+  let norm2 = 0; BIRD.forEach(p => norm2 += p[0] * p[0] + p[1] * p[1]);
+  const power = order.map(k => (re[k] * re[k] + im[k] * im[k]) / NB);
+  return { re, im, order, norm: Math.sqrt(norm2), power };
+})();
+function fdRebuild(K) {
+  const keep = FD.order.slice(0, K), out = [];
+  for (let n = 0; n < NB; n += 2) { let x = 0, y = 0; keep.forEach(k => { const a = 2 * Math.PI * k * n / NB, c = Math.cos(a), s = Math.sin(a); x += FD.re[k] * c - FD.im[k] * s; y += FD.re[k] * s + FD.im[k] * c; }); out.push([x / NB, y / NB]); }
+  out.push(out[0]); return out;
+}
+const fdErr = K => { let t = 0; for (let i = K; i < NB; i++) t += FD.power[i]; return Math.sqrt(Math.max(t, 0)) / FD.norm; };
+let fdK = 6;
+const drawFd = chart('p-fd', host => {
+  const xs = BIRD.map(p => p[0]), ys = BIRD.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const h = Math.min(380, Math.max(260, host.clientWidth * 0.55));
+  // equal scales: pad the shorter axis so a unit is the same length both ways
+  const w = Math.max(280, host.clientWidth), pw = w - 32, ph = h - 32;
+  const s = Math.min(pw / (x1 - x0), ph / (y1 - y0)), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const P = frame(host, { h, x: [cx - pw / 2 / s, cx + pw / 2 / s], y: [cy + ph / 2 / s, cy - ph / 2 / s], xt: [], yt: [], m: { l: 16, r: 16, t: 16, b: 16 }, label: 'Bird outline and its Fourier reconstruction' });
+  P.line(BIRD.concat([BIRD[0]]), 's1 thin');
+  P.line(fdRebuild(fdK), 's2');
+  $('#fd-ko').textContent = fdK; $('#fd-share').textContent = fmt(fdK / NB * 100, 2) + '%'; $('#fd-err').textContent = pct(fdErr(fdK));
+});
+$('#fd-k').addEventListener('input', e => { fdK = +e.target.value; drawFd(); });
+
+/* ---------------------------------------------------------------- MARKETS */
+const MK = D.markets;
+const NAMES = { hist_mean: 'Historical mean', arima: 'ARIMA', ridge: 'Ridge', gbm: 'Gradient boosting', lstm: 'LSTM', gru: 'GRU', ensemble: 'Ensemble', hist21: '21-day history', ewma: 'EWMA', garch: 'GARCH(1,1)', har: 'HAR-RV', har_x: 'HAR-RV + VIX' };
+$('#mk-days').textContent = MK.test_days.toLocaleString('en-US');
+$('#mk-up').textContent = pct(MK.always_up);
+function hbars(id, rows, max, f, tipf) {
+  chart(id, host => {
+    const rowH = 30, h = rows.length * rowH + 40, w = Math.max(280, host.clientWidth);
+    const lw = Math.min(140, w * 0.36);
+    const P = frame(host, { h, x: [0, max], y: [0, rows.length], yt: [], m: { l: lw, r: 56, t: 6, b: 30 }, xf: f, xn: 4 });
+    rows.forEach((r, i) => {
+      const y = P.Y(i + 0.5) ; const x0 = P.X(0), x1 = P.X(Math.max(r.v, 0));
+      E('rect', { x: x0, y: y - 9, width: Math.max(2, x1 - x0), height: 18, rx: 4, class: 'f1' }, P.body);
+      P.text(lw - 10, y + 4, NAMES[r.k], { 'text-anchor': 'end' });
+      P.text(x1 + 6, y + 4, f(r.v), { style: 'font-family:var(--f-mono)' });
+    });
+    hover(host, P, (px, py) => { const i = Math.floor((P.h - P.M.b - py) / rowH); if (i < 0 || i >= rows.length) return null; const r = rows[i]; return { html: tipf(r) }; });
+  });
+}
+const retRows = MK.ret.map(r => ({ k: r.k, v: r.r2, hit: r.hit, p: r.dm_p })).reverse();
+hbars('p-mk-ret', retRows, 0.007, v => fmt(v * 100, 2) + '%', r => `<b>${NAMES[r.k]}</b><br>R² <span class="n">${fmt(r.v * 100, 2)}%</span><br>Direction right <span class="n">${pct(r.hit)}</span><br>Diebold–Mariano p <span class="n">${r.p < 0.001 ? r.p.toExponential(1) : fmt(r.p, 3)}</span>`);
+const volRows = MK.vol.map(r => ({ k: r.k, v: r.r2 })).reverse();
+hbars('p-mk-vol', volRows, 0.7, v => Math.round(v * 100) + '%', r => `<b>${NAMES[r.k]}</b><br>R² of log variance <span class="n">${pct(r.v)}</span>`);
+$('#mk-trap').innerHTML = [['naive', 'Tomorrow = today'], ['lstm_leaky', 'Tutorial LSTM (scaler fitted on all data)'], ['lstm_clean', 'Same LSTM, leak fixed']]
+  .map(([k, n]) => `<tr><td>${n}</td><td class="num">${fmt(MK.trap[k].r2, 3)}</td><td class="num">${fmt(MK.trap[k].rmse, 1)}</td></tr>`).join('');
+
+/* ---------------------------------------------------------------- CROSSOVER A: random walk */
+const RW = D.cross.random_walk;
+$('#cx-span').textContent = `${fdate(RW.start)} to ${fdate(RW.end)}`;
+$('#rw-mu').textContent = fmt(RW.mu * 100, 3) + '%'; $('#rw-sd').textContent = fmt(RW.sigma * 100, 2) + '%';
+const WK = RW.spy_weekly.logp, t0 = new Date(RW.spy_weekly.t0);
+const wkYear = i => t0.getFullYear() + (t0.getMonth() + i * 7 / 30.44) / 12;
+const muW = RW.mu * 5, sdW = RW.sigma * Math.sqrt(5);
+let walks = [];
+function newWalks() { walks = Array.from({ length: 20 }, () => { let v = 0; return WK.map((_, i) => i ? (v += muW + sdW * gauss()) : 0); }); }
+newWalks();
+const multTicks = [0.5, 1, 2, 5, 10, 20, 50, 100];
+const drawRw = chart('p-rw', host => {
+  const all = walks.flat().concat(WK), lo = Math.min(...all), hi = Math.max(...all);
+  const yt = multTicks.map(Math.log).filter(v => v >= lo - 0.2 && v <= hi + 0.2);
+  const P = frame(host, { h: 340, x: [wkYear(0), wkYear(WK.length - 1)], y: [Math.min(lo, Math.log(0.5)), hi * 1.03], yt, yf: v => Math.round(Math.exp(v) * 10) / 10 + '×', xf: v => Math.round(v), label: 'SPY against simulated random walks' });
+  walks.forEach(wk => P.line(wk.map((v, i) => [wkYear(i), v]), 'sn thin').setAttribute('opacity', '.45'));
+  P.line(WK.map((v, i) => [wkYear(i), v]), 's1');
+  P.hline(0);
+  const ends = walks.map(w => Math.exp(w[w.length - 1])).sort((a, b) => a - b);
+  $('#rw-end').textContent = fmt(Math.exp(WK[WK.length - 1]), 1) + '×';
+  $('#rw-range').textContent = `${fmt(ends[0], 1)}× and ${fmt(ends[ends.length - 1], 1)}×`;
+  hover(host, P, px => {
+    const i = Math.max(0, Math.min(WK.length - 1, Math.round((px - P.M.l) / (P.w - P.M.l - P.M.r) * (WK.length - 1))));
+    const d = new Date(t0.getTime() + i * 7 * 864e5);
+    return { cross: P.X(wkYear(i)), pts: [[P.X(wkYear(i)), P.Y(WK[i]), 'f1']], html: `<b>${MON[d.getMonth()]} ${d.getFullYear()}</b><br>SPY: $1 → <span class="n">$${fmt(Math.exp(WK[i]), 2)}</span>` };
+  });
+});
+$('#rw-new').addEventListener('click', () => { newWalks(); drawRw(); });
+
+let tlMode = 'raw';
+const T = RW.tails, H = RW.hist;
+const normCdf = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; };
+const drawTails = chart('p-tails', host => {
+  const counts = tlMode === 'raw' ? H.raw : H.scaled, n = tlMode === 'raw' ? H.n_raw : H.n_scaled, ed = H.edges;
+  const P = frame(host, { h: 300, x: [-8, 8], y: [0.3, 3000], ylog: true, yt: [1, 10, 100, 1000], yf: v => v >= 1000 ? (v / 1000) + 'k' : v, xt: [-8, -6, -4, -2, 0, 2, 4, 6, 8], xf: v => v + 'σ', xl: 'Daily move in standard deviations', yl: 'Days (log scale)', label: 'Histogram of daily returns against the normal distribution' });
+  counts.forEach((c, i) => { if (!c) return; const x0 = P.X(ed[i]) + 1, x1 = P.X(ed[i + 1]) - 1; E('rect', { x: x0, y: P.Y(c), width: Math.max(1, x1 - x0), height: P.Y(0.3) - P.Y(c), rx: 1.5, class: 'f1' }, P.body); });
+  const exp = []; for (let z = -8; z <= 8.001; z += 0.05) { const e = n * (normCdf(z + 0.125) - normCdf(z - 0.125)); exp.push([z, Math.max(e, 0.3)]); }
+  P.line(exp, 's2');
+  [-4, 4].forEach(v => P.vline(v));
+  hover(host, P, px => {
+    const z = (px - P.M.l) / (P.w - P.M.l - P.M.r) * 16 - 8, i = Math.max(0, Math.min(ed.length - 2, Math.floor((z + 8) / 0.25)));
+    const e = n * (normCdf(ed[i + 1]) - normCdf(ed[i]));
+    return { html: `<b>${fmt(ed[i], 2)}σ to ${fmt(ed[i + 1], 2)}σ</b><br>SPY days: <span class="n">${counts[i]}</span><br>Normal expects: <span class="n">${e < 0.01 ? e.toExponential(1) : fmt(e, 2)}</span>` };
+  });
+  $('#tl-obs').textContent = tlMode === 'raw' ? T.obs4 : T.obs4_scaled;
+  $('#tl-exp').textContent = fmt(tlMode === 'raw' ? T.exp4 : T.exp4_scaled, 2);
+  $('#tl-k').textContent = fmt(tlMode === 'raw' ? T.kurt : T.kurt_scaled, 1);
+});
+const tlBtns = [$('#tl-raw'), $('#tl-sc')];
+tlBtns.forEach(b => b.addEventListener('click', () => { tlMode = b.id === 'tl-raw' ? 'raw' : 'sc'; setSeg(tlBtns, b); drawTails(); }));
+
+chart('p-vr', host => {
+  const V = RW.vr, P = frame(host, { h: 260, x: [1, 63], xlog: true, xt: [1, 2, 5, 10, 21, 63], y: [0.5, 1.3], yt: [0.6, 0.8, 1, 1.2], xl: 'Horizon k, trading days (log scale)', yl: 'Variance ratio', label: 'Variance ratio of SPY against shuffled returns' });
+  P.area(V.map(v => [v.k, v.hi]), V.map(v => [v.k, v.lo]), 'band-null');
+  P.hline(1);
+  P.line(V.map(v => [v.k, v.vr]), 's1');
+  V.forEach(v => E('circle', { cx: P.X(v.k), cy: P.Y(v.vr), r: 4, class: 'f1 ring' }, P.body));
+  const rob = Object.fromEntries(RW.vr_robust.map(r => [r.k, r]));
+  hover(host, P, px => {
+    const ks = V.map(v => P.X(v.k)), i = nearestIdx(ks, px), v = V[i], r = rob[v.k];
+    return { cross: ks[i], pts: [[ks[i], P.Y(v.vr), 'f1']], html: `<b>k = ${v.k} days</b><br>SPY ratio <span class="n">${fmt(v.vr, 3)}</span><br>Shuffled 95%: <span class="n">${fmt(v.lo, 2)}–${fmt(v.hi, 2)}</span>` + (r ? `<br>Robust z <span class="n">${fmt(r.z, 2)}</span>` : '') };
+  });
+});
+(() => {
+  const r = Object.fromEntries(RW.vr_robust.map(x => [x.k, x])), dec = RW.vr_decades;
+  $('#vr-cap').textContent = `Heteroskedasticity-robust Lo–MacKinlay z: ${fmt(r[5].z, 1)} at 5 days, ${fmt(r[10].z, 1)} at 10, ${fmt(r[21].z, 1)} at 21. It stays significant after volatility scaling (z ${fmt(r[10].z_scaled, 1)} at 10 days). By decade, z at 10 days is ${dec.map(d => fmt(d.z10, 1) + ' for ' + d.span.replace('-', '–')).join(', ')}, so the effect is fading.`;
+})();
+
+chart('p-acf', host => {
+  const A = RW.acf_abs, R = RW.acf_r, b = RW.acf_band;
+  const P = frame(host, { h: 260, x: [1, 100], y: [-0.1, 0.35], yt: [-0.1, 0, 0.1, 0.2, 0.3], xl: 'Lag, trading days', yl: 'Autocorrelation', label: 'Autocorrelation of returns and absolute returns' });
+  P.area([[1, b], [100, b]], [[1, -b], [100, -b]], 'band-null');
+  P.hline(0);
+  P.line(R.map((v, i) => [i + 1, v]), 's2 thin');
+  P.line(A.map((v, i) => [i + 1, v]), 's1');
+  hover(host, P, px => {
+    const L = Math.max(1, Math.min(100, Math.round(1 + (px - P.M.l) / (P.w - P.M.l - P.M.r) * 99)));
+    return { cross: P.X(L), pts: [[P.X(L), P.Y(A[L - 1]), 'f1'], [P.X(L), P.Y(R[L - 1]), 'f2']], html: `<b>Lag ${L}</b><br>|r|: <span class="n">${fmt(A[L - 1], 3)}</span><br>r: <span class="n">${fmt(R[L - 1], 3)}</span><br>No-memory band ±<span class="n">${fmt(b, 3)}</span>` };
+  });
+});
+
+chart('p-mdd', host => {
+  const M = RW.mdd, bins = M.bins, hs = M.hist_normal, max = Math.max(...hs);
+  const P = frame(host, { h: 250, x: [0, 0.9], y: [0, max * 1.12], xf: v => Math.round(v * 100) + '%', xl: 'Maximum drawdown over 33 years', yl: 'Simulations', label: 'Distribution of simulated maximum drawdowns' });
+  hs.forEach((c, i) => { if (!c) return; const x0 = P.X(bins[i]) + 1, x1 = P.X(bins[i + 1]) - 1; E('rect', { x: x0, y: P.Y(c), width: Math.max(1, x1 - x0), height: P.Y(0) - P.Y(c), rx: 1.5, class: 'fn' }, P.body); });
+  P.vline(M.real, 'ln s1');
+  P.text(P.X(M.real) + 6, P.M.t + 12, 'SPY 2007–09: ' + pct(M.real, 0));
+  hover(host, P, px => {
+    const v = (px - P.M.l) / (P.w - P.M.l - P.M.r) * 0.9, i = Math.max(0, Math.min(hs.length - 1, Math.floor(v / 0.02)));
+    return { html: `<b>${Math.round(bins[i] * 100)}–${Math.round(bins[i + 1] * 100)}%</b><br><span class="n">${hs[i]}</span> of 2,000 simulations` };
+  });
+  $('#md-real').textContent = pct(M.real, 0); $('#md-med').textContent = pct(M.median_normal, 0);
+  $('#md-pct').textContent = `${pct(M.pct_normal, 0)} (resampled real returns: ${pct(M.pct_boot, 0)})`;
+});
+(() => {
+  const kh = RW.kurt_h;
+  $('#rw-verdict').innerHTML = [
+    ['Independent steps?', `<b>No.</b> Big days cluster. The size of today's move is still correlated with the size 100 days later (autocorrelation of |r|: ${fmt(RW.acf_abs[0], 2)} at lag 1, ${fmt(RW.acf_abs[99], 2)} at lag 100; a random walk gives 0).`],
+    ['Normal steps?', `<b>No.</b> ${T.obs4} days beyond 4σ where ${fmt(T.exp4, 1)} are expected. Kurtosis falls from ${fmt(kh[0].kurt, 1)} daily to ${fmt(kh[kh.length - 1].kurt, 1)} quarterly, on the way to the CLT's 3.`],
+    ['Wrong about crashes?', `<b>Not as much as expected.</b> ${pct(RW.mdd.pct_normal, 0)} of random-walk histories have a worse drawdown than 2008. Tails are wrong day to day, while the 33-year path is plausible.`],
+  ].map(([q, a]) => `<div><span class="q">${q}</span><span class="a">${a}</span></div>`).join('');
+})();
+
+/* ---------------------------------------------------------------- CROSSOVER B: dosing */
+const DS = D.cross.dosing;
+$('#ds-n').textContent = DS.events.length; $('#ds-n2').textContent = DS.events.length;
+$('#ds-read').innerHTML = `<span>One compartment: half-life <b>${fmt(DS.one.half_life, 1)} d</b>, R² <b>${fmt(DS.one.r2, 2)}</b></span><span>Two compartments: <b>${pct(DS.two.a, 0)}</b> clears with half-life <b>${fmt(DS.two.hl_fast, 1)} d</b>, the rest <b>${fmt(DS.two.hl_slow, 0)} d</b>; R² <b>${fmt(DS.two.r2, 2)}</b></span>`;
+$('#ds-events').innerHTML = DS.events.map(e => `<tr><td>${fdate(e.date)}</td><td class="num">${fmt(e.peak, 1)}</td><td class="num">${fmt(e.base, 1)}</td><td class="num">${e.half_life ?? '> 60'}</td></tr>`).join('');
+chart('p-clear', host => {
+  const med = DS.curve_median, q1 = DS.curve_q25, q3 = DS.curve_q75, hh = med.map((_, i) => i);
+  const lo = Math.min(-0.2, ...q1), P = frame(host, { h: 280, x: [0, 60], y: [lo, 1.05], yt: [0, 0.25, 0.5, 0.75, 1], yf: v => Math.round(v * 100) + '%', xl: 'Trading days after the peak', yl: 'Share of the spike left', label: 'Median VIX spike clearance with fits' });
+  P.area(hh.map(i => [i, q3[i]]), hh.map(i => [i, q1[i]]), 'band');
+  P.hline(0); P.hline(0.5);
+  const one = hh.map(t => [t, Math.exp(-DS.one.k * t)]), two = hh.map(t => [t, DS.two.a * Math.exp(-DS.two.k_fast * t) + (1 - DS.two.a) * Math.exp(-DS.two.k_slow * t)]);
+  P.line(one, 's2 dashed'); P.line(two, 's3'); P.line(hh.map(i => [i, med[i]]), 's1');
+  hover(host, P, px => {
+    const i = Math.max(0, Math.min(60, Math.round((px - P.M.l) / (P.w - P.M.l - P.M.r) * 60)));
+    return { cross: P.X(i), pts: [[P.X(i), P.Y(med[i]), 'f1'], [P.X(i), P.Y(one[i][1]), 'f2'], [P.X(i), P.Y(two[i][1]), 'f3']], html: `<b>Day ${i}</b><br>Median spike: <span class="n">${pct(med[i], 0)}</span> left<br>Middle 50%: <span class="n">${pct(q1[i], 0)}–${pct(q3[i], 0)}</span><br>One compartment: <span class="n">${pct(one[i][1], 0)}</span><br>Two compartments: <span class="n">${pct(two[i][1], 0)}</span>` };
+  });
+});
+
+const VIX = DS.vix, NV = VIX.length, VD = DS.dates;  // VD: every 5th trading day
+const vDate = i => VD[Math.min(VD.length - 1, Math.floor(i / 5))];
+const dm = { mode: 1, hl: Math.round(DS.recon.half_life * 2) / 2, th: +DS.recon.threshold.toFixed(1), win: 'all' };
+const base = DS.recon.base;
+function doseModel() {
+  const out = new Float64Array(NV); out[0] = VIX[0]; let n = 0;
+  if (dm.mode === 1) {
+    const dec = Math.exp(-Math.LN2 / dm.hl); let e = VIX[0] - base;
+    for (let t = 1; t < NV; t++) { const j = VIX[t] - VIX[t - 1], d = j > dm.th ? (n++, j) : 0; e = e * dec + d; out[t] = base + e; }
+  } else {
+    const R = DS.recon2, df = Math.exp(-R.k_fast), dsl = Math.exp(-R.k_slow); let ef = 0, es = VIX[0] - base;
+    for (let t = 1; t < NV; t++) { const j = VIX[t] - VIX[t - 1], d = j > dm.th ? (n++, j) : 0; ef = ef * df + R.a * d; es = es * dsl + (1 - R.a) * d; out[t] = base + ef + es; }
+  }
+  return { out, n };
+}
+const r2 = (a, m, i0, i1) => { let mu = 0; for (let i = i0; i < i1; i++) mu += a[i]; mu /= (i1 - i0); let ss = 0, st = 0; for (let i = i0; i < i1; i++) { ss += (a[i] - m[i]) ** 2; st += (a[i] - mu) ** 2; } return 1 - ss / st; };
+const winIdx = w => { if (w === 'all') return [0, NV]; const ranges = { 2008: ['2007-06-01', '2010-01-01'], 2020: ['2019-10-01', '2021-01-01'], 2025: ['2024-10-01', '2026-10-14'] }[w]; const f = s => Math.max(0, VD.findIndex(d => d >= s)) * 5; return [f(ranges[0]), Math.min(NV, f(ranges[1]) || NV)]; };
+const drawDose = chart('p-dose', host => {
+  const { out, n } = doseModel(), [i0, i1] = winIdx(dm.win);
+  let ymax = 0; for (let i = i0; i < i1; i++) ymax = Math.max(ymax, VIX[i], out[i]);
+  const yr = i => { const s = vDate(i); return +s.slice(0, 4) + (+s.slice(5, 7) - 1) / 12 + (+s.slice(8, 10)) / 365; };
+  const P = frame(host, { h: 320, x: [i0, i1 - 1], y: [0, ymax * 1.05], xt: (() => { const o = [], span = i1 - i0, step = span > 4000 ? 1260 : span > 500 ? 126 : 63; for (let i = i0; i < i1; i += step) o.push(i); return o; })(), xf: i => { const s = vDate(i); return dm.win === 'all' ? s.slice(0, 4) : MON[+s.slice(5, 7) - 1] + ' ' + s.slice(2, 4); }, yl: 'VIX', label: 'VIX against the dose and clearance model' });
+  const step = Math.max(1, Math.floor((i1 - i0) / (P.w * 1.5)));
+  const pts = (arr) => { const o = []; for (let i = i0; i < i1; i += step) o.push([i, arr[i]]); return o; };
+  P.line(pts(VIX), 's1 thin'); P.line(pts(out), 's2 thin');
+  P.hline(base);
+  hover(host, P, px => {
+    const i = Math.max(i0, Math.min(i1 - 1, Math.round(i0 + (px - P.M.l) / (P.w - P.M.l - P.M.r) * (i1 - 1 - i0))));
+    return { cross: P.X(i), pts: [[P.X(i), P.Y(VIX[i]), 'f1'], [P.X(i), P.Y(out[i]), 'f2']], html: `<b>${fdate(vDate(i))}</b> <span style="opacity:.7">(±1 wk)</span><br>VIX: <span class="n">${fmt(VIX[i], 1)}</span><br>Model: <span class="n">${fmt(out[i], 1)}</span>` };
+  });
+  $('#dm-n').textContent = n.toLocaleString('en-US') + ' of ' + NV.toLocaleString('en-US') + ' days';
+  $('#dm-r2').textContent = fmt(r2(VIX, out, 0, NV), 2);
+  $('#dm-r2w').textContent = dm.win === 'all' ? '—' : fmt(r2(VIX, out, i0, i1), 2);
+  $('#dm-hlo').textContent = dm.mode === 1 ? dm.hl + ' days' : `${fmt(DS.recon2.hl_fast, 1)} / ${fmt(DS.recon2.hl_slow, 0)} d`;
+  $('#dm-tho').textContent = '+' + fmt(dm.th, 1) + ' pts';
+  $('#dm-hl').disabled = dm.mode === 2;
+});
+$('#dm-cap').textContent = `Best one-compartment fit: half-life ${fmt(DS.recon.half_life, 1)} days with doses on ${DS.recon.n_doses} days (${pct(DS.recon.n_doses / DS.recon.n_days)} of them), R² ${fmt(DS.recon.r2, 2)}. Two compartments with the same doses: ${pct(DS.recon2.a, 0)} clears in ${fmt(DS.recon2.hl_fast, 1)} days and the rest in ${fmt(DS.recon2.hl_slow, 0)}, R² ${fmt(DS.recon2.r2, 2)}. The threshold is 2σ of the daily AR(1) residual. Hover dates are rounded to the nearest week.`;
+$('#dm-hl').value = dm.hl; $('#dm-th').value = dm.th;
+$('#dm-hl').addEventListener('input', e => { dm.hl = +e.target.value; drawDose(); });
+$('#dm-th').addEventListener('input', e => { dm.th = +e.target.value; drawDose(); });
+const dmBtns = [$('#dm-1'), $('#dm-2')];
+dmBtns.forEach(b => b.addEventListener('click', () => { dm.mode = b.id === 'dm-1' ? 1 : 2; setSeg(dmBtns, b); drawDose(); }));
+const winBtns = $$('#dm-win button');
+winBtns.forEach(b => b.addEventListener('click', () => { dm.win = b.dataset.w; setSeg(winBtns, b); drawDose(); }));
+$('#ds-verdict').innerHTML = [
+  ['How fast is fear cleared?', `<b>Fast, then slowly.</b> The median spike loses half its excess in about ${fmt(DS.one.half_life, 0)} trading days. A whole-series AR(1) says ${fmt(DS.ar1.half_life, 0)}, because it averages the two phases.`],
+  ['One compartment or two?', `<b>Two.</b> R² rises from ${fmt(DS.one.r2, 2)} to ${fmt(DS.two.r2, 2)} on the median spike: a fast phase (half-life ${fmt(DS.two.hl_fast, 1)} d) and a slow tail (${fmt(DS.two.hl_slow, 0)} d), like a drug's distribution and elimination phases.`],
+  ['Is the VIX just doses and decay?', `<b>Half of it.</b> Doses on ${pct(DS.recon.n_doses / DS.recon.n_days, 1)} of days plus clearance reproduce ${pct(DS.recon.r2, 0)} of VIX variation. In 2008 the doses came faster than they cleared and built up, like repeated dosing; the model tracks 2007–09 with R² ${fmt(r2(VIX, doseModel().out, ...winIdx('2008')), 2)}.`],
+].map(([q, a]) => `<div><span class="q">${q}</span><span class="a">${a}</span></div>`).join('');
+
+/* ---------------------------------------------------------------- CROSSOVER C: crash shapes */
+const SH = D.cross.shapes, S = SH.s, MEAN = SH.mean, MODES = SH.modes, SD = SH.sd, EPS = SH.episodes;
+$('#sh-n').textContent = EPS.length;
+const shp = { m: [0, 0, 0], sel: null };
+const shapeAt = m => MEAN.map((v, j) => v + m.reduce((a, c, k) => a + c * SD[k] * MODES[k][j], 0));
+const drawShape = chart('p-shape', host => {
+  const P = frame(host, { h: 300, x: [0, 1], y: [-1.35, 0.25], yt: [-1, -0.5, 0], yf: v => Math.round(v * 100) + '%', xf: v => Math.round(v * 100) + '%', xt: [0, 0.25, 0.5, 0.75, 1], xl: 'Time from peak (0%) to recovery (100%)', yl: 'Drop, share of the crash depth', label: 'Crash shape model' });
+  P.hline(0);
+  P.line(S.map((s, j) => [s, MEAN[j]]), 'sn dashed');
+  if (shp.sel != null) { const e = EPS[shp.sel]; P.line(S.map((s, j) => [s, e.curve[j]]), 's1'); }
+  const cur = shapeAt(shp.m); P.line(S.map((s, j) => [s, cur[j]]), 's2');
+  ['1', '2', '3'].forEach((k, i) => $('#sh-m' + k + 'o').textContent = (shp.m[i] > 0 ? '+' : '') + fmt(shp.m[i], 1) + ' sd');
+});
+['1', '2', '3'].forEach((k, i) => $('#sh-m' + k).addEventListener('input', e => { shp.m[i] = +e.target.value; drawShape(); }));
+let drawScatter;
+function selectEp(i) {
+  shp.sel = i; const e = EPS[i];
+  shp.m = [0, 1, 2].map(k => Math.max(-2.5, Math.min(2.5, +e.scores[k].toFixed(1))));
+  ['1', '2', '3'].forEach((k, j) => $('#sh-m' + k).value = shp.m[j]);
+  $('#sh-sel').innerHTML = `<b style="color:var(--ink)">${e.ticker}</b>: peak ${fdate(e.peak)}, bottom ${fdate(e.trough)}, recovered ${fdate(e.recovered)}. Depth ${pct(e.depth, 0)}, ${e.days.toLocaleString('en-US')} trading days. The orange line is this crash rebuilt from three modes.`;
+  drawShape(); drawScatter();
+}
+drawScatter = chart('p-scatter', host => {
+  const xs = EPS.map(e => e.scores[0]), ys = EPS.map(e => e.scores[1]);
+  const P = frame(host, { h: 340, x: [-3.2, 3.2], y: [-2.5, 3], xt: [-3, -2, -1, 0, 1, 2, 3], yt: [-2, -1, 0, 1, 2, 3], xl: 'Mode 1 score: U-shaped ← → V-shaped', yl: 'Mode 2: early ↓ / late ↑ bottom', label: 'Crashes placed by their first two shape modes' });
+  P.vline(0); P.hline(0);
+  const dots = EPS.map((e, i) => ({ i, x: P.X(e.scores[0]), y: P.Y(e.scores[1]), e }));
+  dots.slice().sort((a, b) => (a.e.ticker === 'SPY') - (b.e.ticker === 'SPY')).forEach(d => {
+    E('circle', { cx: d.x, cy: d.y, r: d.i === shp.sel ? 7 : 5, class: (d.e.ticker === 'SPY' ? 'f1' : 'f3') + ' ring' + (d.i === shp.sel ? ' sel' : '') }, P.body);
+  });
+  const lab = { '2007-10-09': ['SPY 2008', 9, -8], '2020-02-19': ['SPY 2020', 9, 16], '2000-03-24': ['SPY dot-com', -9, -8, 'end'] };
+  dots.forEach(d => { const L = d.e.ticker === 'SPY' && lab[d.e.peak]; if (L) P.text(d.x + L[1], d.y + L[2], L[0], L[3] ? { 'text-anchor': L[3] } : {}); });
+  const nearest = (px, py) => { let b = null, bd = 400; dots.forEach(d => { const dd = (d.x - px) ** 2 + (d.y - py) ** 2; if (dd < bd) { bd = dd; b = d; } }); return b; };
+  const hit = hover(host, P, (px, py) => { const d = nearest(px, py); if (!d) return null; const e = d.e; return { pts: [[d.x, d.y, e.ticker === 'SPY' ? 'f1' : 'f3']], html: `<b>${e.ticker}</b> ${e.peak.slice(0, 4)}–${e.recovered.slice(0, 4)}<br>Depth <span class="n">${pct(e.depth, 0)}</span>, <span class="n">${e.days}</span> days<br>Modes <span class="n">${fmt(e.scores[0], 1)}, ${fmt(e.scores[1], 1)}</span><br>Click to load` }; });
+  hit.style.cursor = 'pointer';
+  hit.addEventListener('click', ev => { const r = P.svg.getBoundingClientRect(), d = nearest(ev.clientX - r.left, ev.clientY - r.top); if (d) selectEp(d.i); });
+});
+$('#sh-var').innerHTML = SH.var.slice(0, 3).map((v, i) => `<span>Mode ${i + 1} <b>${pct(v, 0)}</b></span>`).join('') + `<span>First three <b>${pct(SH.cumvar[2], 0)}</b></span>`;
+const spyEp = d => EPS.find(e => e.ticker === 'SPY' && e.peak === d), covid = spyEp('2020-02-19'), gfc = spyEp('2007-10-09'), dot = spyEp('2000-03-24');
+$('#sh-verdict').innerHTML = [
+  ['Is there a typical crash?', `<b>Yes, a loose one.</b> Three modes explain ${pct(SH.cumvar[2], 0)} of shape variation. That is less than the 90% for jawlines, so crashes vary more than faces do.`],
+  ['What sets the shape?', `<b>Where the bottom falls.</b> Mode 2 tracks the timing of the trough (correlation ${fmt(SH.corr.m2_vs_trough_at, 2)}). Mode 1 separates quick V's from long U's.`],
+  ['Are deep crashes different?', `<b>Somewhat.</b> Deeper crashes lean U-shaped (mode 1 vs depth: ${fmt(SH.corr.m1_vs_depth, 2)}). Of SPY's three crashes deeper than 30%, COVID bottomed earliest: ${pct(covid.trough_at, 0)} of the way to recovery, against ${pct(gfc.trough_at, 0)} for 2008 and ${pct(dot.trough_at, 0)} for the dot-com bust.`],
+].map(([q, a]) => `<div><span class="q">${q}</span><span class="a">${a}</span></div>`).join('');
+
+/* overview numbers straight from the data */
+$('#ov-tails').innerHTML = `${T.obs4} <small>vs ${fmt(T.exp4, 1)}</small>`;
+$('#ov-dose').innerHTML = `${fmt(DS.two.hl_fast, 1)} <small>/ ${fmt(DS.two.hl_slow, 0)} days</small>`;
+$('#ov-shape').innerHTML = `${pct(SH.cumvar[2], 0)} <small>in 3 modes</small>`;
+
+show((location.hash || '').slice(1) || 'overview', false);
+window.addEventListener('hashchange', () => show(location.hash.slice(1), false));
+})();
+</script>

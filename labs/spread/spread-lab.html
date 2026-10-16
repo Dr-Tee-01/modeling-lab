@@ -1,0 +1,1116 @@
+<title>Spread Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: engineering-notebook instrument panel. Sticky model tabs, parameter rail on the left, live readouts + plots on the right. */
+:root{
+  --bg:#EDF0F4; --bg-grid:rgba(40,70,120,.055); --panel:#FFFFFF; --panel2:#F5F7FA;
+  --ink:#121D2B; --muted:#5B6879; --line:#D5DCE5; --grid:#E8EDF3;
+  --accent:#2A55D8; --accent-ink:#FFFFFF; --accent-soft:#E6ECFB;
+  --s:#2F6FDB; --i:#D63F35; --r:#14916A; --v:#7B4DDF; --amber:#B87500;
+  --band:rgba(20,145,106,.11); --shade:rgba(123,77,223,.09);
+  --good:#14916A; --warn:#B87500; --bad:#D63F35;
+  --f-display:'Bricolage Grotesque','Avenir Next',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1219; --bg-grid:rgba(140,170,220,.05); --panel:#141B24; --panel2:#19222D;
+    --ink:#E4EAF1; --muted:#8D9AAB; --line:#283445; --grid:#1E2834;
+    --accent:#7D9CFF; --accent-ink:#0D1219; --accent-soft:#1C2640;
+    --s:#6AA0FF; --i:#FF7468; --r:#45CF98; --v:#B39BFF; --amber:#F2B33D;
+    --band:rgba(69,207,152,.13); --shade:rgba(179,155,255,.11);
+    --good:#45CF98; --warn:#F2B33D; --bad:#FF7468;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1219; --bg-grid:rgba(140,170,220,.05); --panel:#141B24; --panel2:#19222D;
+  --ink:#E4EAF1; --muted:#8D9AAB; --line:#283445; --grid:#1E2834;
+  --accent:#7D9CFF; --accent-ink:#0D1219; --accent-soft:#1C2640;
+  --s:#6AA0FF; --i:#FF7468; --r:#45CF98; --v:#B39BFF; --amber:#F2B33D;
+  --band:rgba(69,207,152,.13); --shade:rgba(179,155,255,.11);
+  --good:#45CF98; --warn:#F2B33D; --bad:#FF7468;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background-color:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  background-image:linear-gradient(var(--bg-grid) 1px,transparent 1px),linear-gradient(90deg,var(--bg-grid) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.wrap{max-width:1280px; margin:0 auto; padding-inline:clamp(16px,3vw,32px); padding-block:28px 48px}
+h1,h2,h3{font-family:var(--f-display); text-wrap:balance; margin:0; letter-spacing:-.01em}
+p{margin:0}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* header */
+.top{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px 40px; margin-bottom:22px}
+.brand{display:flex; align-items:center; gap:14px}
+.brand svg{flex:none}
+.brand h1{font-size:clamp(30px,4.2vw,44px); font-weight:700; line-height:1}
+.brand .tag{font-family:var(--f-mono); font-size:12px; color:var(--muted); margin-top:6px; letter-spacing:.02em}
+.lede{max-width:62ch; color:var(--muted); font-size:15px}
+
+/* tabs */
+.tabs{position:sticky; top:env(safe-area-inset-top,0px); z-index:5; display:flex; gap:4px; overflow-x:auto; padding:6px; margin-bottom:22px;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; scrollbar-width:thin}
+.tab{flex:1 0 auto; display:flex; flex-direction:column; align-items:flex-start; gap:1px; min-width:128px; padding:9px 14px; border:0; border-radius:8px;
+  background:transparent; cursor:pointer; text-align:left}
+.tab:hover{background:var(--panel2)}
+.tab .n{font-family:var(--f-display); font-weight:600; font-size:16px}
+.tab .d{font-family:var(--f-mono); font-size:11px; color:var(--muted); white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--accent); color:var(--accent-ink)}
+.tab[aria-selected="true"] .d{color:inherit; opacity:.8}
+
+/* module */
+.mod-head{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:18px 36px; align-items:end; margin-bottom:18px}
+.eyebrow{font-family:var(--f-mono); font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin-bottom:6px}
+.mod-head h2{font-size:clamp(22px,2.6vw,30px); font-weight:650; line-height:1.15; margin-bottom:8px}
+.desc{color:var(--muted); max-width:66ch}
+.eq{margin:0; font-family:var(--f-mono); font-size:13px; line-height:1.75; color:var(--ink); background:var(--panel); border:1px solid var(--line);
+  border-radius:10px; padding:12px 16px; white-space:pre-wrap; overflow-x:auto}
+.eq b{font-weight:500; color:var(--muted); font-size:11px; letter-spacing:.06em; text-transform:uppercase; display:block; margin-bottom:2px}
+.mod-body{display:grid; grid-template-columns:290px minmax(0,1fr); gap:18px; align-items:start}
+@media (max-width:900px){.mod-head,.mod-body{grid-template-columns:minmax(0,1fr)}}
+
+/* controls */
+.controls{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:14px}
+@media (min-width:901px){.controls{position:sticky; top:calc(env(safe-area-inset-top,0px) + 92px)}}
+.ctl{display:flex; flex-direction:column; gap:6px}
+.ctl-row{display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:13px}
+.ctl-label{font-size:13px; color:var(--ink)}
+output{font-family:var(--f-mono); font-size:12.5px; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap}
+input[type=range]{width:100%; accent-color:var(--accent); margin:0}
+.ctl-head{font-family:var(--f-mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); padding-top:10px; border-top:1px solid var(--line)}
+.seg{display:flex; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:3px; gap:3px}
+.seg button{flex:1; border:0; background:transparent; padding:6px 8px; border-radius:6px; font-size:12.5px; cursor:pointer; color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel); color:var(--ink); box-shadow:0 0 0 1px var(--line)}
+.toggle{flex-direction:row; align-items:center; gap:10px; font-size:13px; cursor:pointer}
+.toggle input{accent-color:var(--accent); width:16px; height:16px; margin:0}
+.btn{border:1px solid var(--line); background:var(--panel2); border-radius:8px; padding:8px 12px; font-size:13px; cursor:pointer; text-align:center}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:500}
+.hint{font-size:12px; color:var(--muted)}
+
+/* readouts */
+.stage{display:flex; flex-direction:column; gap:14px; min-width:0}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr)); gap:10px}
+.kpi{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:11px 14px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.kpi-l{font-family:var(--f-mono); font-size:11px; color:var(--muted); letter-spacing:.03em; display:flex; align-items:center; gap:6px}
+.kpi.t-good .kpi-l::before,.kpi.t-warn .kpi-l::before,.kpi.t-bad .kpi-l::before{content:""; width:7px; height:7px; border-radius:50%; flex:none}
+.kpi.t-good .kpi-l::before{background:var(--good)} .kpi.t-warn .kpi-l::before{background:var(--warn)} .kpi.t-bad .kpi-l::before{background:var(--bad)}
+.kpi-v{font-family:var(--f-display); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.2}
+.kpi-u{font-family:var(--f-body); font-size:12px; font-weight:400; color:var(--muted)}
+.kpi-s{font-size:12px; color:var(--muted)}
+.kpi .mini{align-self:flex-start; margin-top:4px; border:1px solid var(--accent); color:var(--accent); background:transparent; border-radius:6px; padding:2px 9px; font-size:12px; cursor:pointer}
+.kpi .mini:hover{background:var(--accent-soft)}
+
+.fig{margin:0; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px 10px; min-width:0; display:flex; flex-direction:column; gap:8px}
+.fig figcaption{display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px}
+.fig-t{font-weight:600; font-size:13.5px}
+.unit{font-family:var(--f-mono); font-weight:400; font-size:11.5px; color:var(--muted); margin-left:4px}
+.legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-left:auto; font-size:12px; color:var(--muted)}
+.lg{display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.lg i{width:16px; height:0; border-top:2.5px solid var(--c)}
+.lg i.dash{border-top-style:dashed; border-top-width:2px}
+.lg i.dot{width:8px; height:8px; border:0; border-radius:50%; background:var(--c)}
+.lg i.area{height:9px; border:0; border-radius:2px; background:var(--c); opacity:.55}
+.chip{font-family:var(--f-mono); font-size:11.5px; padding:2px 9px; border-radius:99px; border:1px solid currentColor}
+.chip.t-good{color:var(--good)} .chip.t-warn{color:var(--warn)} .chip.t-bad{color:var(--bad)}
+.cv{display:block; width:100%; height:290px}
+.cv.tall{height:330px}
+.cv.short{height:230px}
+.fig-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:14px}
+.status{font-family:var(--f-mono); font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; display:flex; flex-wrap:wrap; gap:4px 14px}
+.status b{font-weight:500}
+.status .S{color:var(--s)} .status .I{color:var(--i)} .status .R{color:var(--r)} .status .V{color:var(--v)}
+.notes{margin:0; padding:0; list-style:none; display:grid; gap:8px}
+.notes li{position:relative; padding-left:18px; color:var(--muted); font-size:14px; max-width:80ch}
+.notes li::before{content:"→"; position:absolute; left:0; color:var(--accent); font-family:var(--f-mono)}
+
+/* footer */
+.how{margin-top:40px; padding-top:22px; border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:18px 28px}
+.how h3{font-size:18px; font-weight:600; grid-column:1/-1}
+.how div p:first-child{font-family:var(--f-mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin-bottom:4px}
+.how div p+p{color:var(--muted); font-size:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true">
+        <rect x="1" y="1" width="44" height="44" rx="10" fill="var(--panel)" stroke="var(--line)"/>
+        <path d="M7 37 C 17 37, 18 9, 39 9" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M7 37 C 15 37, 16 21, 23 21 S 31 37, 39 37" fill="none" stroke="var(--i)" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+      </svg>
+      <div>
+        <h1>Spread Lab</h1>
+        <p class="tag">differential equations · Monte Carlo · live in the browser</p>
+      </div>
+    </div>
+    <p class="lede">Six models of how things move through a population: a drug through the bloodstream, a product through a market, flu through a school, a rumour through a crowd, decay through a sample of atoms, and a walker through space. Every curve on this page is computed as you drag the sliders.</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Models">
+    <button class="tab" role="tab" id="tab-pk" aria-controls="pk" data-mod="pk"><span class="n">Dosing</span><span class="d">pharmacokinetics</span></button>
+    <button class="tab" role="tab" id="tab-bass" aria-controls="bass" data-mod="bass"><span class="n">Adoption</span><span class="d">Bass diffusion</span></button>
+    <button class="tab" role="tab" id="tab-sir" aria-controls="sir" data-mod="sir"><span class="n">Epidemic</span><span class="d">SIR + interventions</span></button>
+    <button class="tab" role="tab" id="tab-rum" aria-controls="rum" data-mod="rum"><span class="n">Rumour</span><span class="d">ignorant · spreader · stifler</span></button>
+    <button class="tab" role="tab" id="tab-mc" aria-controls="mc" data-mod="mc"><span class="n">Chance</span><span class="d">Monte Carlo</span></button>
+    <button class="tab" role="tab" id="tab-walk" aria-controls="walk" data-mod="walk"><span class="n">Random walk</span><span class="d">1-D and 2-D</span></button>
+  </nav>
+
+  <main>
+    <!-- DOSING -->
+    <section class="mod" id="pk" role="tabpanel" aria-labelledby="tab-pk" hidden>
+      <div class="mod-head">
+        <div>
+          <p class="eyebrow">Pharmacokinetics</p>
+          <h2>Keep a drug inside its therapeutic window</h2>
+          <p class="desc">Each dose lands on top of whatever the body has not cleared yet. Tune the dose, interval and half-life and watch whether blood levels settle between the minimum effective and maximum safe concentration. Defaults follow phenytoin (Dilantin): 22 h half-life, window 10–20 µg/mL.</p>
+        </div>
+        <pre class="eq" id="pk-eq"></pre>
+      </div>
+      <div class="mod-body">
+        <aside class="controls" id="pk-ctl" aria-label="Dosing parameters"></aside>
+        <div class="stage">
+          <div class="kpis" id="pk-kpi"></div>
+          <figure class="fig">
+            <figcaption><span class="fig-t">Concentration in blood<span class="unit">µg/mL</span></span><span class="chip" id="pk-chip"></span>
+              <span class="legend"><span class="lg"><i style="--c:var(--i)"></i>Blood</span><span class="lg" id="pk-lg-gut"><i class="dash" style="--c:var(--amber)"></i>Gut</span><span class="lg"><i class="area" style="--c:var(--r)"></i>Therapeutic window</span></span></figcaption>
+            <canvas class="cv tall" id="pk-c1" role="img" aria-label="Drug concentration over ten days"></canvas>
+          </figure>
+          <ul class="notes" id="pk-notes"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- BASS -->
+    <section class="mod" id="bass" role="tabpanel" aria-labelledby="tab-bass" hidden>
+      <div class="mod-head">
+        <div>
+          <p class="eyebrow">Product adoption · Bass model</p>
+          <h2>Advertising starts it, word of mouth finishes it</h2>
+          <p class="desc">Every non-adopter buys at rate p because of outside influence, plus q times the share of the market that already owns the product. The S-curve, the sales peak and the split between innovators and imitators all follow from those two numbers.</p>
+        </div>
+        <pre class="eq"><b>model</b>dN/dt = (p + q·N/C)(C − N)
+<b>closed form</b>N(t) = C(1 − e^−(p+q)t) / (1 + (q/p)e^−(p+q)t)</pre>
+      </div>
+      <div class="mod-body">
+        <aside class="controls" id="bass-ctl" aria-label="Adoption parameters"></aside>
+        <div class="stage">
+          <div class="kpis" id="bass-kpi"></div>
+          <div class="fig-row">
+            <figure class="fig">
+              <figcaption><span class="fig-t">Cumulative adopters<span class="unit">millions</span></span>
+                <span class="legend"><span class="lg"><i style="--c:var(--accent)"></i>RK4</span><span class="lg"><i class="dash" style="--c:var(--ink)"></i>Closed form</span></span></figcaption>
+              <canvas class="cv" id="bass-c1" role="img" aria-label="Cumulative adopters over time"></canvas>
+            </figure>
+            <figure class="fig">
+              <figcaption><span class="fig-t">New adopters per year<span class="unit">millions</span></span>
+                <span class="legend"><span class="lg"><i class="area" style="--c:var(--amber)"></i>Innovators</span><span class="lg"><i class="area" style="--c:var(--s)"></i>Imitators</span></span></figcaption>
+              <canvas class="cv" id="bass-c2" role="img" aria-label="Sales per year split by innovators and imitators"></canvas>
+            </figure>
+          </div>
+          <ul class="notes" id="bass-notes"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIR -->
+    <section class="mod" id="sir" role="tabpanel" aria-labelledby="tab-sir" hidden>
+      <div class="mod-head">
+        <div>
+          <p class="eyebrow">Epidemics · SIR</p>
+          <h2>Flu in a boarding school, and what a vaccine or a lockdown would have changed</h2>
+          <p class="desc">In January 1978 influenza went through an English boarding school of 763 boys, starting from one case. The dots are the real daily counts of boys confined to bed. Fit the model to them, then switch on interventions.</p>
+        </div>
+        <pre class="eq"><b>model</b>dS/dt = −β·S·I/N − v·S
+dI/dt =  β·S·I/N − α·I
+dR/dt =  α·I + v·S        R₀ = β/α</pre>
+      </div>
+      <div class="mod-body">
+        <aside class="controls" id="sir-ctl" aria-label="Epidemic parameters"></aside>
+        <div class="stage">
+          <div class="kpis" id="sir-kpi"></div>
+          <div class="fig-row">
+            <figure class="fig">
+              <figcaption><span class="fig-t">763 students, one random run</span><button class="btn" type="button" id="sir-replay" style="margin-left:auto;padding:4px 10px;font-size:12px">Replay</button></figcaption>
+              <canvas class="cv" id="sir-ab" role="img" aria-label="Animated stochastic simulation of students"></canvas>
+              <p class="status" id="sir-status"></p>
+            </figure>
+            <figure class="fig">
+              <figcaption><span class="fig-t">Students by state<span class="unit">people</span></span>
+                <span class="legend"><span class="lg"><i style="--c:var(--s)"></i>S</span><span class="lg"><i style="--c:var(--i)"></i>I</span><span class="lg"><i style="--c:var(--r)"></i>R</span><span class="lg" id="sir-lg-v"><i style="--c:var(--v)"></i>Vaccinated</span><span class="lg"><i style="--c:var(--i);opacity:.5;border-top-width:1.5px"></i>Random run</span><span class="lg" id="sir-lg-d"><i class="dot" style="--c:var(--ink)"></i>1978 data</span></span></figcaption>
+              <canvas class="cv" id="sir-c1" role="img" aria-label="Susceptible, infected and recovered over time"></canvas>
+            </figure>
+          </div>
+          <ul class="notes" id="sir-notes"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- RUMOUR -->
+    <section class="mod" id="rum" role="tabpanel" aria-labelledby="tab-rum" hidden>
+      <div class="mod-head">
+        <div>
+          <p class="eyebrow">Information spread · ISR model</p>
+          <h2>How far a rumour travels before people tire of it</h2>
+          <p class="desc">Ignorants hear the rumour from spreaders. Spreaders stop when they meet someone who already knows it, so a rumour is slowed by its own success. An education campaign (α) moves ignorants straight to stiflers; Λ adds newcomers who have not heard it.</p>
+        </div>
+        <pre class="eq"><b>model</b>dI/dt = Λ − β·S·I/N − α·I
+dS/dt = β·S·I/N − γ·S·(S+R)/N
+dR/dt = γ·S·(S+R)/N + α·I     R₀ = 1 + β/γ</pre>
+      </div>
+      <div class="mod-body">
+        <aside class="controls" id="rum-ctl" aria-label="Rumour parameters"></aside>
+        <div class="stage">
+          <div class="kpis" id="rum-kpi"></div>
+          <div class="fig-row">
+            <figure class="fig">
+              <figcaption><span class="fig-t">Population by role<span class="unit">people</span></span>
+                <span class="legend"><span class="lg"><i style="--c:var(--s)"></i>Ignorant</span><span class="lg"><i style="--c:var(--i)"></i>Spreader</span><span class="lg"><i style="--c:var(--r)"></i>Stifler</span><span class="lg" id="rum-lg-b"><i class="dash" style="--c:var(--i)"></i>Spreaders, no campaign</span></span></figcaption>
+              <canvas class="cv" id="rum-c1" role="img" aria-label="Ignorants, spreaders and stiflers over time"></canvas>
+            </figure>
+            <figure class="fig">
+              <figcaption><span class="fig-t">Closed-form results vs R₀</span>
+                <span class="legend"><span class="lg"><i style="--c:var(--r)"></i>Final reach r(∞)</span><span class="lg"><i style="--c:var(--i)"></i>Peak spreaders s_max</span></span></figcaption>
+              <canvas class="cv" id="rum-c2" role="img" aria-label="Final reach and peak spreaders as functions of R0"></canvas>
+            </figure>
+          </div>
+          <ul class="notes" id="rum-notes"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- MONTE CARLO -->
+    <section class="mod" id="mc" role="tabpanel" aria-labelledby="tab-mc" hidden>
+      <div class="mod-head">
+        <div>
+          <p class="eyebrow">Monte Carlo</p>
+          <h2>Randomness that averages out</h2>
+          <p class="desc">A thousand atoms, each with the same small chance of decaying every second, add up to a smooth exponential. A fair coin tossed enough times settles on one half. Both are the law of large numbers, and both show how fast the noise shrinks.</p>
+        </div>
+        <pre class="eq"><b>decay</b>P(atom survives t) = e^−λt   ⇒   E[N(t)] = N₀e^−λt
+<b>coin</b>p̂ₙ = heads / n,   sd(p̂ₙ) = √(p(1−p)/n)</pre>
+      </div>
+      <div class="mod-body">
+        <aside class="controls" id="mc-ctl" aria-label="Monte Carlo parameters"></aside>
+        <div class="stage">
+          <div class="kpis" id="mc-kpi"></div>
+          <div class="fig-row">
+            <figure class="fig">
+              <figcaption><span class="fig-t">Atoms remaining<span class="unit">of 1,000</span></span>
+                <span class="legend"><span class="lg"><i style="--c:var(--v);opacity:.45;border-top-width:1.5px"></i>Single runs</span><span class="lg"><i class="area" style="--c:var(--v)"></i>Mean ± 1σ</span><span class="lg"><i class="dash" style="--c:var(--ink)"></i>N₀e^−λt</span></span></figcaption>
+              <canvas class="cv" id="mc-c1" role="img" aria-label="Simulated radioactive decay against theory"></canvas>
+            </figure>
+            <figure class="fig">
+              <figcaption><span class="fig-t">One sample, atom by atom</span><button class="btn" type="button" id="mc-replay" style="margin-left:auto;padding:4px 10px;font-size:12px">Replay</button></figcaption>
+              <canvas class="cv" id="mc-grid" role="img" aria-label="Grid of 1000 atoms decaying"></canvas>
+              <p class="status" id="mc-status"></p>
+            </figure>
+          </div>
+          <figure class="fig">
+            <figcaption><span class="fig-t">Running share of heads, six sequences<span class="unit">log scale</span></span>
+              <span class="legend"><span class="lg"><i class="dash" style="--c:var(--muted)"></i>95% band, 0.5 ± 1.96·0.5/√n</span></span></figcaption>
+            <canvas class="cv short" id="mc-c2" role="img" aria-label="Running proportion of heads converging to one half"></canvas>
+          </figure>
+          <ul class="notes" id="mc-notes"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- RANDOM WALK -->
+    <section class="mod" id="walk" role="tabpanel" aria-labelledby="tab-walk" hidden>
+      <div class="mod-head">
+        <div>
+          <p class="eyebrow">Stochastic processes · random walks</p>
+          <h2>Where a random walker ends up</h2>
+          <p class="desc">Each step goes right with probability p and left otherwise. The average position drifts by 2p − 1 per step, while the spread grows only like √n. In two dimensions the same √n law sets how far a walker strays from home.</p>
+        </div>
+        <pre class="eq"><b>1-D</b>E[Xₙ] = n(2p − 1)      Var(Xₙ) = 4np(1 − p)
+<b>2-D, 8 directions</b>E[Rₙ²] = 1.5n           E[Rₙ] ≈ √(3πn/8)</pre>
+      </div>
+      <div class="mod-body">
+        <aside class="controls" id="walk-ctl" aria-label="Random walk parameters"></aside>
+        <div class="stage">
+          <div class="kpis" id="walk-kpi"></div>
+          <div class="fig-row">
+            <figure class="fig">
+              <figcaption><span class="fig-t">Position over time<span class="unit">steps</span></span>
+                <span class="legend"><span class="lg"><i style="--c:var(--s);opacity:.45;border-top-width:1.5px"></i>Walkers</span><span class="lg"><i style="--c:var(--i)"></i>Mean</span><span class="lg"><i class="dash" style="--c:var(--ink)"></i>Theory ± 2σ</span></span></figcaption>
+              <canvas class="cv" id="walk-c1" role="img" aria-label="Random walk trajectories"></canvas>
+            </figure>
+            <figure class="fig">
+              <figcaption><span class="fig-t">Where walkers finish<span class="unit">share of walkers</span></span>
+                <span class="legend"><span class="lg"><i class="area" style="--c:var(--s)"></i>Simulated</span><span class="lg"><i style="--c:var(--i)"></i>Normal approximation</span></span></figcaption>
+              <canvas class="cv" id="walk-c2" role="img" aria-label="Histogram of final positions"></canvas>
+            </figure>
+          </div>
+          <figure class="fig">
+            <figcaption><span class="fig-t">250 walkers in the plane, 8 directions</span>
+              <span class="legend"><span class="lg"><i class="dash" style="--c:var(--ink)"></i>√(1.5n), root-mean-square distance</span></span>
+              <button class="btn" type="button" id="walk-replay" style="padding:4px 10px;font-size:12px">Replay</button></figcaption>
+            <canvas class="cv tall" id="walk-2d" role="img" aria-label="Animated two-dimensional random walkers"></canvas>
+            <p class="status" id="walk-status"></p>
+          </figure>
+          <ul class="notes" id="walk-notes"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="how" aria-labelledby="how-h">
+    <h3 id="how-h">How it's built</h3>
+    <div><p>Solver</p><p>A fixed-step fourth-order Runge–Kutta integrator written from scratch drives every ODE model, with dose events and lockdown switches handled between steps.</p></div>
+    <div><p>Verified</p><p>The solver is checked live against the Bass closed form and the rumour model's conserved quantity. The errors are printed in the readouts.</p></div>
+    <div><p>Stochastic engines</p><p>Seeded chain-binomial epidemic, exact geometric decay times, and Monte Carlo walks, each compared with its analytic mean and variance.</p></div>
+    <div><p>Data</p><p>Influenza in an English boarding school, January 1978, reported in the British Medical Journal. β and α are fitted by least squares in the browser.</p></div>
+  </section>
+</div>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const TAU = Math.PI * 2;
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e[k] = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) { if (c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(c)); }
+  return e;
+}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const fmtInt = v => Math.round(v).toLocaleString('en-US');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ---------- numerics ---------- */
+function rk4step(f, t, y, h) {
+  const n = y.length, k1 = f(t, y), y2 = new Array(n), y3 = new Array(n), y4 = new Array(n), out = new Array(n);
+  for (let i = 0; i < n; i++) y2[i] = y[i] + h / 2 * k1[i];
+  const k2 = f(t + h / 2, y2);
+  for (let i = 0; i < n; i++) y3[i] = y[i] + h / 2 * k2[i];
+  const k3 = f(t + h / 2, y3);
+  for (let i = 0; i < n; i++) y4[i] = y[i] + h * k3[i];
+  const k4 = f(t + h, y4);
+  for (let i = 0; i < n; i++) out[i] = y[i] + h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  return out;
+}
+function integrate(f, y0, T, h, every = 1) {
+  const n = Math.round(T / h); let y = y0.slice(); const t = [0], ys = [y];
+  for (let i = 1; i <= n; i++) { y = rk4step(f, (i - 1) * h, y, h); if (i % every === 0 || i === n) { t.push(i * h); ys.push(y); } }
+  return { t, ys, col: k => ys.map(y => y[k]) };
+}
+
+/* ---------- canvas charts ---------- */
+let PAL = {};
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  PAL = { ink: g('--ink'), muted: g('--muted'), line: g('--line'), grid: g('--grid'), panel: g('--panel'), panel2: g('--panel2'),
+    s: g('--s'), i: g('--i'), r: g('--r'), v: g('--v'), amber: g('--amber'), accent: g('--accent'), band: g('--band'), shade: g('--shade'),
+    mono: g('--f-mono') || 'monospace' };
+}
+const col = c => PAL[c] || c;
+function niceStep(range, target) {
+  const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+  return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+}
+const decimals = step => Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+function fmtTick(v, d) {
+  const a = Math.abs(v);
+  if (a >= 1e6) return +(v / 1e6).toFixed(1) + 'M';
+  if (a >= 1e4) return +(v / 1e3).toFixed(0) + 'k';
+  const s = v.toFixed(d); return s === '-0' ? '0' : s;
+}
+function setupCanvas(cv) {
+  const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return null;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), bw = Math.round(W * dpr), bh = Math.round(H * dpr);
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  return { ctx, W, H };
+}
+function drawChart(cv, o) {
+  const c = setupCanvas(cv); if (!c) return null; const { ctx, W, H } = c;
+  const m = { l: o.ml || 46, r: 12, t: 10, b: 36 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const x0 = o.xMin ?? 0, x1 = o.xMax, y0 = o.yMin ?? 0, y1 = o.yMax;
+  const lx0 = Math.log10(x0 || 1), lx1 = Math.log10(x1);
+  const X = o.xLog ? v => m.l + (Math.log10(Math.max(v, x0)) - lx0) / (lx1 - lx0) * pw : v => m.l + (v - x0) / (x1 - x0) * pw;
+  const Y = v => m.t + ph - (v - y0) / (y1 - y0) * ph;
+  ctx.font = `11px ${PAL.mono}`; ctx.lineWidth = 1;
+  for (const b of o.xbands || []) {
+    const a = X(Math.max(b.x0, x0)), e = X(Math.min(b.x1, x1)); if (e <= a) continue;
+    ctx.fillStyle = col(b.color); ctx.fillRect(a, m.t, e - a, ph);
+    if (b.label) { ctx.fillStyle = PAL.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(b.label, a + 5, m.t + 5); }
+  }
+  for (const b of o.bands || []) {
+    const top = Y(Math.min(b.y1, y1)), bot = Y(Math.max(b.y0, y0)); if (bot <= top) continue;
+    ctx.fillStyle = col(b.color); ctx.fillRect(m.l, top, pw, bot - top);
+  }
+  const ys = niceStep(y1 - y0, o.yTicks || 5), yd = decimals(ys);
+  ctx.strokeStyle = PAL.grid; ctx.fillStyle = PAL.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let v = Math.ceil(y0 / ys - 1e-9) * ys; v <= y1 + 1e-9; v += ys) {
+    const y = Math.round(Y(v)) + .5; ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke();
+    ctx.fillText(fmtTick(v, yd), m.l - 7, y);
+  }
+  const xt = []; let xd = 0;
+  if (o.xLog) { for (let p = Math.ceil(lx0); p <= lx1 + 1e-9; p++) xt.push(10 ** p); }
+  else { const xs = o.xStep || niceStep(x1 - x0, o.xTicks || 6); xd = decimals(xs); for (let v = Math.ceil(x0 / xs - 1e-9) * xs; v <= x1 + 1e-9; v += xs) xt.push(v); }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const v of xt) {
+    const x = Math.round(X(v)) + .5; ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); ctx.stroke();
+    ctx.fillText(o.xLog ? fmtInt(v) : fmtTick(v, xd), x, m.t + ph + 6);
+  }
+  ctx.strokeStyle = PAL.line; ctx.beginPath(); ctx.moveTo(m.l, Math.round(m.t + ph) + .5); ctx.lineTo(m.l + pw, Math.round(m.t + ph) + .5); ctx.stroke();
+  if (o.xLabel) { ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = PAL.muted; ctx.fillText(o.xLabel, m.l + pw, H - 1); }
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t - 2, pw, ph + 3); ctx.clip();
+  for (const b of o.bars || []) {
+    ctx.globalAlpha = b.alpha ?? 1; ctx.fillStyle = col(b.color);
+    const a = X(b.x0), e = X(b.x1); ctx.fillRect(a + .5, Y(b.y), Math.max(1, e - a - 1), Y(y0) - Y(b.y));
+  }
+  ctx.globalAlpha = 1;
+  for (const s of o.series || []) {
+    const xs = s.x, yv = s.y, n = xs.length; if (!n) continue;
+    if (s.fill) {
+      ctx.globalAlpha = s.fillAlpha ?? .18; ctx.fillStyle = col(s.color); ctx.beginPath(); ctx.moveTo(X(xs[0]), Y(yv[0]));
+      for (let i = 1; i < n; i++) ctx.lineTo(X(xs[i]), Y(yv[i]));
+      if (s.base) for (let i = n - 1; i >= 0; i--) ctx.lineTo(X(xs[i]), Y(s.base[i]));
+      else { ctx.lineTo(X(xs[n - 1]), Y(y0)); ctx.lineTo(X(xs[0]), Y(y0)); }
+      ctx.closePath(); ctx.fill();
+    }
+    if (s.width !== 0) {
+      ctx.globalAlpha = s.alpha ?? 1; ctx.strokeStyle = col(s.color); ctx.lineWidth = s.width || 2; ctx.lineJoin = 'round'; ctx.setLineDash(s.dash || []);
+      ctx.beginPath(); ctx.moveTo(X(xs[0]), Y(yv[0])); for (let i = 1; i < n; i++) ctx.lineTo(X(xs[i]), Y(yv[i])); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.globalAlpha = 1;
+  }
+  for (const l of o.hlines || []) {
+    const y = Math.round(Y(l.y)) + .5; ctx.strokeStyle = col(l.color); ctx.lineWidth = 1.25; ctx.setLineDash(l.dash || [5, 4]);
+    ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke(); ctx.setLineDash([]);
+    if (l.label) { ctx.fillStyle = col(l.color); ctx.textAlign = l.left ? 'left' : 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(l.label, l.left ? m.l + 6 : m.l + pw - 4, y - 3); }
+  }
+  for (const l of o.vlines || []) {
+    const x = Math.round(X(l.x)) + .5; ctx.strokeStyle = col(l.color); ctx.lineWidth = l.width || 1.25; ctx.setLineDash(l.dash || [5, 4]);
+    ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); ctx.stroke(); ctx.setLineDash([]);
+    if (l.label) { ctx.fillStyle = col(l.color); const right = x > m.l + pw * .7; ctx.textAlign = right ? 'right' : 'left'; ctx.textBaseline = 'top'; ctx.fillText(l.label, right ? x - 5 : x + 5, m.t + (l.dy || 4)); }
+  }
+  for (const d of o.dots || []) {
+    ctx.fillStyle = col(d.color); ctx.strokeStyle = PAL.panel; ctx.lineWidth = 1.5;
+    for (const [x, y] of d.pts) { ctx.beginPath(); ctx.arc(X(x), Y(y), d.r || 3.5, 0, TAU); ctx.fill(); ctx.stroke(); }
+  }
+  ctx.restore();
+  return { X, Y, m, pw, ph };
+}
+
+/* ---------- module plumbing ---------- */
+const MODS = {}; let active = null;
+function renderKpis(box, items) {
+  box.replaceChildren(...items.map(k => el('div', { class: 'kpi' + (k.tone ? ' t-' + k.tone : '') },
+    el('p', { class: 'kpi-l' }, k.label),
+    el('p', { class: 'kpi-v' }, k.value, k.unit ? el('span', { class: 'kpi-u' }, ' ' + k.unit) : null),
+    k.sub ? el('p', { class: 'kpi-s' }, k.sub) : null,
+    k.btn ? el('button', { type: 'button', class: 'mini', onclick: k.btn.fn }, k.btn.label) : null)));
+}
+function renderNotes(ul, notes) { ul.replaceChildren(...notes.filter(Boolean).map(n => el('li', {}, n))); }
+function buildControls(m) {
+  const root = $('#' + m.id + '-ctl'); m.refs = {};
+  for (const d of m.controls) {
+    let box;
+    if (d.type === 'head') box = el('p', { class: 'ctl-head' }, d.label);
+    else if (d.type === 'seg') {
+      const wrap = el('div', { class: 'seg', role: 'group', 'aria-label': d.label });
+      for (const [val, lab] of d.options) {
+        const b = el('button', { type: 'button', 'data-val': val, 'aria-pressed': String(m.state[d.key] === val) }, lab);
+        b.onclick = () => { setParam(m, d.key, val); changed(m); };
+        wrap.append(b);
+      }
+      box = el('div', { class: 'ctl' }, el('span', { class: 'ctl-label' }, d.label), wrap);
+      m.refs[d.key] = { box, seg: wrap };
+    } else if (d.type === 'toggle') {
+      const id = `${m.id}-${d.key}`, inp = el('input', { type: 'checkbox', id });
+      inp.checked = !!m.state[d.key]; inp.onchange = () => { m.state[d.key] = inp.checked; changed(m); };
+      box = el('label', { class: 'ctl toggle', for: id }, inp, el('span', {}, d.label));
+      m.refs[d.key] = { box, input: inp };
+    } else if (d.type === 'button') {
+      box = el('button', { type: 'button', class: 'btn' + (d.primary ? ' primary' : ''), onclick: () => m[d.act]() }, d.label);
+      if (d.key) m.refs[d.key] = { box };
+    } else {
+      const id = `${m.id}-${d.key}`, out = el('output', { for: id, id: id + '-o' });
+      const inp = el('input', { type: 'range', id, min: d.min, max: d.max, step: d.step });
+      inp.value = m.state[d.key];
+      const show = () => { const v = +inp.value; out.textContent = (d.fmt ? d.fmt(v) : String(v)) + (d.unit ? ' ' + d.unit : ''); };
+      inp.oninput = () => { m.state[d.key] = +inp.value; show(); changed(m); };
+      show();
+      box = el('div', { class: 'ctl' }, el('label', { for: id, class: 'ctl-row' }, el('span', { class: 'ctl-label' }, d.label), out), inp, d.hint ? el('p', { class: 'hint' }, d.hint) : null);
+      m.refs[d.key] = { box, input: inp, show };
+    }
+    if (d.show) (m._cond ||= []).push([box, d.show]);
+    root.append(box);
+  }
+}
+function setParam(m, key, val) {
+  m.state[key] = val; const r = m.refs[key]; if (!r) return;
+  if (r.seg) r.seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.val === String(val))));
+  else if (r.input?.type === 'checkbox') r.input.checked = !!val;
+  else if (r.input) { r.input.value = val; r.show(); }
+}
+function updateVis(m) { for (const [box, fn] of m._cond || []) box.hidden = !fn(m.state); }
+function changed(m) {
+  if (m._pend) return; m._pend = true;
+  requestAnimationFrame(() => { m._pend = false; updateVis(m); m.compute(); m.restart?.(); m.draw(); });
+}
+function register(m) { MODS[m.id] = m; }
+
+/* =========================================================
+   1. DOSING
+   ========================================================= */
+register({
+  id: 'pk', V: 3000, T: 240,
+  state: { model: 'one', dose: 100, tau: 8, thalf: 22, absorb: 0.12, ka: 0.6, load: 1, mec: 10, mtc: 20 },
+  controls: [
+    { type: 'seg', key: 'model', label: 'Model', options: [['one', 'One compartment'], ['two', 'Gut → blood']] },
+    { key: 'dose', label: 'Dose', min: 25, max: 400, step: 5, unit: 'mg' },
+    { key: 'tau', label: 'Dosing interval τ', min: 2, max: 24, step: 1, unit: 'h' },
+    { key: 'thalf', label: 'Elimination half-life', min: 2, max: 72, step: 1, unit: 'h' },
+    { key: 'absorb', label: 'Fraction absorbed', min: 0.02, max: 1, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
+    { key: 'ka', label: 'Gut → blood rate k₁', min: 0.05, max: 3, step: 0.05, fmt: v => v.toFixed(2), unit: '/h', show: s => s.model === 'two' },
+    { key: 'load', label: 'First dose multiplier', min: 1, max: 10, step: 0.1, fmt: v => '×' + v.toFixed(1) },
+    { type: 'head', label: 'Therapeutic window' },
+    { key: 'mec', label: 'Minimum effective (MEC)', min: 1, max: 40, step: 0.5, unit: 'µg/mL' },
+    { key: 'mtc', label: 'Maximum safe (MTC)', min: 2, max: 60, step: 0.5, unit: 'µg/mL' },
+    { type: 'button', label: 'Reset to phenytoin defaults', act: 'reset' },
+  ],
+  reset() { const d = { model: 'one', dose: 100, tau: 8, thalf: 22, absorb: 0.12, ka: 0.6, load: 1, mec: 10, mtc: 20 }; for (const k in d) setParam(this, k, d[k]); changed(this); },
+  compute() {
+    const s = this.state, T = this.T, D = s.dose * 1000 * s.absorb / this.V, k = Math.LN2 / s.thalf;
+    const t = [], b = [], g = [];
+    if (s.model === 'one') {
+      let q = 0;
+      for (let n = 0; n * s.tau < T; n++) {
+        const t0 = n * s.tau, t1 = Math.min(T, t0 + s.tau);
+        t.push(t0); b.push(q); q += D * (n === 0 ? s.load : 1);
+        const steps = Math.max(4, Math.ceil((t1 - t0) / 0.25));
+        for (let j = 0; j <= steps; j++) { const tt = t0 + (t1 - t0) * j / steps; t.push(tt); b.push(q * Math.exp(-k * (tt - t0))); }
+        q *= Math.exp(-k * (t1 - t0));
+      }
+    } else {
+      let y = [0, 0]; const f = (_, y) => [-s.ka * y[0], s.ka * y[0] - k * y[1]];
+      for (let n = 0; n * s.tau < T; n++) {
+        const t0 = n * s.tau, t1 = Math.min(T, t0 + s.tau);
+        t.push(t0); b.push(y[1]); g.push(y[0]);
+        y = [y[0] + D * (n === 0 ? s.load : 1), y[1]];
+        t.push(t0); b.push(y[1]); g.push(y[0]);
+        const steps = Math.max(1, Math.round((t1 - t0) / 0.05)), h = (t1 - t0) / steps;
+        for (let j = 1; j <= steps; j++) { y = rk4step(f, t0 + (j - 1) * h, y, h); if (j % 4 === 0 || j === steps) { t.push(t0 + j * h); b.push(y[1]); g.push(y[0]); } }
+      }
+    }
+    const p = Math.exp(-k * s.tau);
+    const nL = Math.floor(T / s.tau) - 1, a0 = nL * s.tau, a1 = a0 + s.tau;
+    let pk = -Infinity, tr = Infinity;
+    for (let i = 0; i < t.length; i++) if (t[i] > a0 + 1e-9 && t[i] <= a1 + 1e-9) { pk = Math.max(pk, b[i]); tr = Math.min(tr, b[i]); }
+    if (s.model === 'one') { pk = D / (1 - p); tr = D * p / (1 - p); }
+    let tMEC = null; for (let i = 0; i < t.length; i++) if (b[i] >= s.mec) { tMEC = t[i]; break; }
+    let inW = 0; for (let i = 1; i < t.length; i++) { const dt = t[i] - t[i - 1], mid = (b[i] + b[i - 1]) / 2; if (dt > 0 && mid >= s.mec && mid <= s.mtc) inW += dt; }
+    const Lm = 1 / (1 - p);
+    Object.assign(this, { t, b, g, p, D, k, pk, tr, tMEC, inW: inW / T, Lm });
+    const status = pk > s.mtc ? ['bad', 'Peaks exceed MTC'] : tr < s.mec ? ['warn', 'Troughs dip below MEC'] : ['good', 'Settles inside the window'];
+    const chip = $('#pk-chip'); chip.className = 'chip t-' + status[0]; chip.textContent = status[1];
+    $('#pk-lg-gut').hidden = s.model !== 'two';
+    $('#pk-eq').innerHTML = s.model === 'one'
+      ? '<b>one compartment</b>dQ/dt = −kQ + D·Σ δ(t − nτ)\nk = ln 2 / t½        plateau = D / (1 − e^−kτ)'
+      : '<b>two compartments</b>dG/dt = −k₁G + D·Σ δ(t − nτ)   (gut)\ndB/dt =  k₁G − kB             (blood)';
+    renderKpis($('#pk-kpi'), [
+      { label: s.model === 'one' ? 'Steady-state peak / trough' : 'Day-10 peak / trough', value: `${pk.toFixed(1)} / ${tr.toFixed(1)}`, unit: 'µg/mL', tone: status[0] },
+      { label: 'First reaches MEC', value: tMEC == null ? 'Never' : `${Math.round(tMEC)} h`, sub: tMEC == null ? 'raise the dose or shorten τ' : `during dose ${Math.floor(tMEC / s.tau + 1e-9) + 1}`, tone: tMEC == null ? 'bad' : null },
+      { label: 'Time inside window', value: Math.round(this.inW * 100) + '%', sub: 'over 10 days' },
+      { label: 'Loading dose for an instant plateau', value: fmtInt(s.dose * Lm), unit: 'mg', sub: `first dose ×${Lm.toFixed(1)}`,
+        btn: Math.abs(s.load - Lm) > 0.05 && Lm <= 10 ? { label: 'Apply', fn: () => { setParam(this, 'load', Math.round(Lm * 10) / 10); changed(this); } } : null },
+    ]);
+    renderNotes($('#pk-notes'), [
+      `Each dose has decayed to ${Math.round(p * 100)}% of itself by the time the next one arrives (e^−kτ = ${p.toFixed(3)}), so levels climb toward a plateau of D / (1 − e^−kτ) instead of growing forever.`,
+      `Without a loading dose, reaching 90% of the plateau takes about 3.3 half-lives, ${Math.round(3.32 * s.thalf)} h here. A first dose ${Lm.toFixed(1)}× larger starts the patient on the plateau.`,
+      s.model === 'two' ? `Routing the drug through the gut smooths the sawtooth: it reaches the blood over roughly ${(1 / s.ka).toFixed(1)} h instead of instantly, so peaks are lower and later.` : null,
+    ]);
+  },
+  draw() {
+    const s = this.state; const ymax = Math.max(s.mtc * 1.3, Math.max(...this.b) * 1.08);
+    const series = [];
+    if (s.model === 'two') series.push({ x: this.t, y: this.g, color: 'amber', width: 1.5, dash: [5, 4] });
+    series.push({ x: this.t, y: this.b, color: 'i', width: 2 });
+    drawChart($('#pk-c1'), { xMax: this.T, yMax: ymax, xStep: 24, xLabel: 'hours', bands: [{ y0: s.mec, y1: s.mtc, color: 'band' }],
+      hlines: [{ y: s.mtc, color: 'r', label: 'MTC ' + s.mtc }, { y: s.mec, color: 'r', label: 'MEC ' + s.mec }], series });
+  },
+});
+
+/* =========================================================
+   2. BASS
+   ========================================================= */
+register({
+  id: 'bass',
+  state: { preset: 'avg', p: 0.03, q: 0.38, C: 100, T: 25 },
+  controls: [
+    { type: 'seg', key: 'preset', label: 'Start from', options: [['avg', 'Typical durable'], ['wom', 'Word of mouth'], ['ad', 'Ad-driven']] },
+    { key: 'p', label: 'Innovation p (advertising)', min: 0.001, max: 0.15, step: 0.001, fmt: v => v.toFixed(3) },
+    { key: 'q', label: 'Imitation q (word of mouth)', min: 0, max: 1, step: 0.01, fmt: v => v.toFixed(2) },
+    { key: 'C', label: 'Market size C', min: 5, max: 500, step: 5, unit: 'M people' },
+    { key: 'T', label: 'Horizon', min: 10, max: 40, step: 1, unit: 'years' },
+  ],
+  init() {
+    const P = { avg: [0.03, 0.38], wom: [0.005, 0.84], ad: [0.09, 0.1] };
+    const seg = this.refs.preset.seg;
+    seg.querySelectorAll('button').forEach(b => b.onclick = () => { setParam(this, 'preset', b.dataset.val); const [p, q] = P[b.dataset.val]; setParam(this, 'p', p); setParam(this, 'q', q); changed(this); });
+    for (const k of ['p', 'q']) { const inp = this.refs[k].input, old = inp.oninput; inp.oninput = () => { old(); setParam(this, 'preset', ''); }; }
+  },
+  compute() {
+    const { p, q, C, T } = this.state;
+    const r = integrate((_, y) => [(p + q * y[0] / C) * (C - y[0])], [0], T, 0.05, 2);
+    const t = r.t, N = r.col(0);
+    const ex = t.map(tt => { const e = Math.exp(-(p + q) * tt); return C * (1 - e) / (1 + (q / p) * e); });
+    let err = 0; for (let i = 0; i < t.length; i++) err = Math.max(err, Math.abs(N[i] - ex[i]) / C);
+    const inn = N.map(n => p * (C - n)), imi = N.map(n => q * n / C * (C - n)), tot = inn.map((v, i) => v + imi[i]);
+    let innSum = 0; for (let i = 1; i < t.length; i++) innSum += (inn[i] + inn[i - 1]) / 2 * (t[i] - t[i - 1]);
+    const tStar = q > p ? Math.log(q / p) / (p + q) : 0;
+    const peakSales = q > p ? C * (p + q) ** 2 / (4 * q) : p * C;
+    const t50 = Math.log(2 + q / p) / (p + q);
+    Object.assign(this, { t, N, ex, inn, imi, tot, tStar, err });
+    renderKpis($('#bass-kpi'), [
+      { label: 'Sales peak', value: q > p ? `year ${tStar.toFixed(1)}` : 'at launch', sub: q > p ? 't* = ln(q/p)/(p+q)' : 'q ≤ p: advertising dominates' },
+      { label: 'Peak sales', value: peakSales.toFixed(1), unit: 'M / yr', sub: q > p ? 'C(p+q)² / 4q' : 'pC' },
+      { label: 'Half the market by', value: t50 <= T ? `year ${t50.toFixed(1)}` : `year ${t50.toFixed(0)}`, sub: t50 > T ? 'beyond the horizon' : 'ln(2 + q/p)/(p+q)' },
+      { label: 'Adopters who were innovators', value: Math.round(innSum / N[N.length - 1] * 100) + '%', sub: `by year ${T}` },
+      { label: 'RK4 vs closed form', value: err < 1e-12 ? '< 1e-12' : err.toExponential(1), sub: 'max error, share of market', tone: err < 1e-6 ? 'good' : 'warn' },
+    ]);
+    renderNotes($('#bass-notes'), [
+      q > p ? `Word of mouth outweighs advertising (q/p = ${(q / p).toFixed(1)}), so sales rise to a peak in year ${tStar.toFixed(1)}, when ${Math.round(50 * (1 - p / q))}% of the market has adopted: N* = C/2 · (1 − p/q).`
+            : 'Advertising outweighs word of mouth, so sales are highest on day one and only fall from there. No S-curve forms.',
+      'The orange band is people who bought because of outside influence. They dominate the first years even in a word-of-mouth market, because there is no one to imitate yet.',
+      'Defaults use the average p and q from a meta-analysis of consumer durables (Sultan, Farley and Lehmann, 1990).',
+    ]);
+  },
+  draw() {
+    const { C, T } = this.state;
+    drawChart($('#bass-c1'), { xMax: T, yMax: C * 1.05, xLabel: 'years', series: [{ x: this.t, y: this.N, color: 'accent', width: 3 }, { x: this.t, y: this.ex, color: 'ink', width: 1.5, dash: [4, 4] }],
+      vlines: this.tStar > 0 && this.tStar < T ? [{ x: this.tStar, color: 'muted', label: 'sales peak' }] : [] });
+    const ymax = Math.max(...this.tot) * 1.12;
+    drawChart($('#bass-c2'), { xMax: T, yMax: ymax, xLabel: 'years', series: [
+      { x: this.t, y: this.inn, color: 'amber', fill: true, fillAlpha: .45, width: 1.5 },
+      { x: this.t, y: this.tot, base: this.inn, color: 's', fill: true, fillAlpha: .3, width: 2 }] });
+  },
+});
+
+/* =========================================================
+   3. SIR
+   ========================================================= */
+const SCHOOL = [3, 8, 26, 76, 225, 298, 258, 233, 189, 128, 68, 29, 14, 4];
+register({
+  id: 'sir', N: 763,
+  state: { beta: 1.66, alpha: 0.5, v: 0, lock: false, ls: 3, ll: 10, lr: 50, data: true },
+  controls: [
+    { key: 'beta', label: 'Transmission rate β', min: 0.2, max: 3, step: 0.01, fmt: v => v.toFixed(2), unit: '/day' },
+    { key: 'alpha', label: 'Recovery rate α', min: 0.1, max: 1, step: 0.01, fmt: v => `${v.toFixed(2)} /day · ${(1 / v).toFixed(1)} d ill` },
+    { type: 'button', label: 'Fit β and α to the 1978 data', act: 'fit', primary: true },
+    { type: 'head', label: 'Interventions' },
+    { key: 'v', label: 'Vaccinate susceptibles daily', min: 0, max: 30, step: 1, fmt: v => v + '%' },
+    { type: 'toggle', key: 'lock', label: 'Lockdown' },
+    { key: 'ls', label: 'Starts on day', min: 0, max: 15, step: 1, show: s => s.lock },
+    { key: 'll', label: 'Lasts', min: 1, max: 30, step: 1, unit: 'days', show: s => s.lock },
+    { key: 'lr', label: 'Contacts cut by', min: 0, max: 90, step: 5, fmt: v => v + '%', show: s => s.lock },
+    { type: 'head', label: 'Display' },
+    { type: 'toggle', key: 'data', label: 'Show 1978 bed counts' },
+    { type: 'button', label: 'New random run', act: 'reseed' },
+  ],
+  init() {
+    const rnd = mulberry32(7), N = this.N;
+    this.pos = Array.from({ length: N }, () => ({ x: .03 + rnd() * .94, y: .05 + rnd() * .9, ax: .006 + rnd() * .012, ay: .006 + rnd() * .012, f: .6 + rnd() * 1.4, ph: rnd() * TAU }));
+    this.seed = 1; this.T = 30; this.tA = 0; this.hold = 0;
+    for (let s = 1; s < 40; s++) { this.seed = s; if (this.runABM(s).total > 200) break; }
+    $('#sir-replay').onclick = () => { this.tA = 0; this.hold = 0; if (RM) this.tA = this.T; this.drawAgents(); this.draw(); };
+  },
+  beff(t) { const s = this.state; return s.lock && t >= s.ls && t < s.ls + s.ll ? s.beta * (1 - s.lr / 100) : s.beta; },
+  runABM(seed) {
+    const s = this.state, N = this.N, T = this.T, dt = 0.02, rnd = mulberry32(seed * 7919);
+    const tInf = new Float32Array(N).fill(1e9), tRec = new Float32Array(N).fill(1e9), tVac = new Float32Array(N).fill(1e9), src = new Int32Array(N).fill(-1);
+    const st = new Uint8Array(N), p0 = Math.floor(rnd() * N); st[p0] = 1; tInf[p0] = 0;
+    let inf = [p0], total = 1, peak = 1, peakDay = 0; const ts = [0], It = [1];
+    const pR = 1 - Math.exp(-s.alpha * dt), pV = 1 - Math.exp(-s.v / 100 * dt), steps = Math.round(T / dt);
+    for (let k = 1; k <= steps; k++) {
+      const t = k * dt, I = inf.length, pI = I ? 1 - Math.exp(-this.beff(t - dt) * I / N * dt) : 0, newly = [];
+      for (let i = 0; i < N; i++) if (st[i] === 0) { if (I && rnd() < pI) newly.push(i); else if (pV > 0 && rnd() < pV) { st[i] = 3; tVac[i] = t; } }
+      const still = [];
+      for (const j of inf) { if (rnd() < pR) { st[j] = 2; tRec[j] = t; } else still.push(j); }
+      for (const i of newly) { st[i] = 1; tInf[i] = t; src[i] = inf[Math.floor(rnd() * I)]; still.push(i); }
+      inf = still; total += newly.length;
+      if (k % 5 === 0) { ts.push(t); It.push(inf.length); if (inf.length > peak) { peak = inf.length; peakDay = t; } }
+    }
+    return { tInf, tRec, tVac, src, ts, It, total, peak, peakDay };
+  },
+  fit() {
+    const N = this.N, sse = (beta, alpha) => {
+      let S = N - 1, I = 1, e = 0, day = 0; const h = 0.05, per = 20;
+      const fS = (S, I) => -beta * S * I / N, fI = (S, I) => beta * S * I / N - alpha * I;
+      for (let k = 1; k <= SCHOOL.length * per; k++) {
+        const a1 = fS(S, I), b1 = fI(S, I), a2 = fS(S + h / 2 * a1, I + h / 2 * b1), b2 = fI(S + h / 2 * a1, I + h / 2 * b1);
+        const a3 = fS(S + h / 2 * a2, I + h / 2 * b2), b3 = fI(S + h / 2 * a2, I + h / 2 * b2), a4 = fS(S + h * a3, I + h * b3), b4 = fI(S + h * a3, I + h * b3);
+        S += h / 6 * (a1 + 2 * a2 + 2 * a3 + a4); I += h / 6 * (b1 + 2 * b2 + 2 * b3 + b4);
+        if (k % per === 0) { const d = I - SCHOOL[day++]; e += d * d; }
+      }
+      return e;
+    };
+    let best = [Infinity, 1.66, 0.5];
+    for (let b = 0.8; b <= 3; b += 0.05) for (let a = 0.1; a <= 1; a += 0.02) { const e = sse(b, a); if (e < best[0]) best = [e, b, a]; }
+    const [, b0, a0] = best;
+    for (let b = b0 - 0.05; b <= b0 + 0.05; b += 0.005) for (let a = Math.max(0.1, a0 - 0.02); a <= a0 + 0.02; a += 0.002) { const e = sse(b, a); if (e < best[0]) best = [e, b, a]; }
+    setParam(this, 'beta', Math.round(best[1] * 100) / 100); setParam(this, 'alpha', Math.round(best[2] * 100) / 100);
+    setParam(this, 'v', 0); setParam(this, 'lock', false); setParam(this, 'data', true);
+    this.fitted = true; changed(this);
+  },
+  reseed() { this.seed = 1 + Math.floor(Math.random() * 1e6); this.abm = this.runABM(this.seed); this.restart(); this.renderText(); this.draw(); },
+  restart() { this.tA = RM ? this.T : 0; this.hold = 0; },
+  compute() {
+    const s = this.state, N = this.N; this.T = s.lock ? 60 : 30;
+    const v = s.v / 100;
+    const r = integrate((t, y) => { const inf = this.beff(t) * y[0] * y[1] / N, vac = v * y[0]; return [-inf - vac, inf - s.alpha * y[1], s.alpha * y[1], vac, inf]; }, [N - 1, 1, 0, 0, 1], this.T, 0.01, 10);
+    this.ode = { t: r.t, S: r.col(0), I: r.col(1), R: r.col(2), V: r.col(3), C: r.col(4) };
+    this.abm = this.runABM(this.seed);
+    this.renderText();
+  },
+  renderText() {
+    const s = this.state, N = this.N, o = this.ode, a = this.abm;
+    let pi = 0; for (let i = 1; i < o.I.length; i++) if (o.I[i] > o.I[pi]) pi = i;
+    let end = null; for (let i = pi; i < o.I.length; i++) if (o.I[i] < 1) { end = o.t[i]; break; }
+    const total = o.C[o.C.length - 1], R0 = s.beta / s.alpha;
+    let rmse = 0; for (let d = 1; d <= SCHOOL.length; d++) rmse += (o.I[d * 10] - SCHOOL[d - 1]) ** 2; rmse = Math.sqrt(rmse / SCHOOL.length);
+    const fizzled = a.total < 20;
+    renderKpis($('#sir-kpi'), [
+      { label: 'Basic reproduction number', value: 'R₀ ' + R0.toFixed(2), sub: R0 > 1 ? `herd immunity at ${Math.round((1 - 1 / R0) * 100)}% immune` : 'below 1: no epidemic', tone: R0 > 1 ? 'warn' : 'good' },
+      { label: 'Peak, sick at once', value: fmtInt(o.I[pi]), unit: 'students', sub: `day ${o.t[pi].toFixed(1)}`, tone: o.I[pi] > 150 ? 'bad' : o.I[pi] > 40 ? 'warn' : 'good' },
+      { label: 'Ever infected', value: Math.round(total / N * 100) + '%', sub: `${fmtInt(total)} of ${N}` },
+      { label: 'Outbreak over', value: end == null ? 'Not yet' : `day ${end.toFixed(0)}`, sub: end == null ? `still active on day ${this.T}` : 'fewer than 1 sick' },
+      s.data ? { label: 'Fit to 1978 data', value: rmse.toFixed(0), unit: 'RMSE', sub: this.fitted && s.v === 0 && !s.lock ? 'least-squares β, α' : 'press Fit to minimise', tone: rmse < 25 ? 'good' : 'warn' } : null,
+    ].filter(Boolean));
+    const notes = [];
+    if (fizzled) notes.push(`This random run fizzled out after ${a.total} case${a.total > 1 ? 's' : ''}. With a single first case, that happens with probability about 1/R₀ = ${Math.round(100 / Math.max(R0, 1))}%. The smooth ODE cannot show it.`);
+    else notes.push(`The random run peaked at ${a.peak} on day ${a.peakDay.toFixed(1)}, against ${Math.round(o.I[pi])} on day ${o.t[pi].toFixed(1)} for the ODE. Each run differs; press New random run to see the spread.`);
+    if (s.v > 0) notes.push(`Vaccinating ${s.v}% of susceptibles a day removes fuel faster than the virus can use it once vaccinated plus recovered pass ${Math.round((1 - 1 / R0) * 100)}% of the school.`);
+    if (s.lock) notes.push(`Cutting contacts by ${s.lr}% drops R to ${(R0 * (1 - s.lr / 100)).toFixed(2)} during the lockdown. If it ends while most students are still susceptible, the epidemic resumes afterwards.`);
+    if (!s.v && !s.lock) notes.push('Try a lockdown starting on day 3. A short one mostly delays the peak; a long one spreads the same cases over more days.');
+    renderNotes($('#sir-notes'), notes);
+    $('#sir-lg-v').hidden = !(s.v > 0); $('#sir-lg-d').hidden = !s.data;
+  },
+  draw() {
+    const s = this.state, o = this.ode, a = this.abm;
+    const series = [{ x: o.t, y: o.S, color: 's' }, { x: o.t, y: o.R, color: 'r' }];
+    if (s.v > 0) series.push({ x: o.t, y: o.V, color: 'v' });
+    series.push({ x: a.ts, y: a.It, color: 'i', width: 1.25, alpha: .5 }, { x: o.t, y: o.I, color: 'i', width: 2.75 });
+    const tA = Math.min(this.tA, this.T);
+    drawChart($('#sir-c1'), { xMax: this.T, yMax: this.N * 1.04, xLabel: 'days', series,
+      xbands: s.lock ? [{ x0: s.ls, x1: s.ls + s.ll, color: 'shade', label: 'lockdown' }] : [],
+      dots: s.data ? [{ color: 'ink', pts: SCHOOL.map((v, i) => [i + 1, v]), r: 3.5 }] : [],
+      vlines: tA < this.T - 1e-6 ? [{ x: tA, color: 'muted', dash: [2, 3], width: 1 }] : [] });
+    this.drawAgents();
+  },
+  drawAgents() {
+    const c = setupCanvas($('#sir-ab')); if (!c) return; const { ctx, W, H } = c;
+    const a = this.abm, t = Math.min(this.tA, this.T), N = this.N, P = this.pos;
+    const xy = i => { const p = P[i]; return [(p.x + p.ax * Math.sin(t * p.f * 2 + p.ph)) * W, (p.y + p.ay * Math.cos(t * p.f * 2 + p.ph)) * H]; };
+    ctx.lineWidth = 1; ctx.strokeStyle = PAL.i;
+    for (let i = 0; i < N; i++) {
+      const ti = a.tInf[i]; if (a.src[i] < 0 || ti > t || t - ti > 0.6) continue;
+      ctx.globalAlpha = (1 - (t - ti) / 0.6) * .8; const [x1, y1] = xy(a.src[i]), [x2, y2] = xy(i);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    const groups = { s: [], i: [], r: [], v: [] }; let cS = 0, cI = 0, cR = 0, cV = 0;
+    for (let i = 0; i < N; i++) {
+      const k = a.tVac[i] <= t ? 'v' : a.tRec[i] <= t ? 'r' : a.tInf[i] <= t ? 'i' : 's';
+      groups[k].push(i); k === 's' ? cS++ : k === 'i' ? cI++ : k === 'r' ? cR++ : cV++;
+    }
+    for (const k of ['s', 'r', 'v', 'i']) {
+      ctx.fillStyle = PAL[k]; ctx.globalAlpha = k === 's' ? .75 : 1; const rad = k === 'i' ? 3.2 : 2.3;
+      ctx.beginPath(); for (const i of groups[k]) { const [x, y] = xy(i); ctx.moveTo(x + rad, y); ctx.arc(x, y, rad, 0, TAU); } ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    $('#sir-status').innerHTML = `<b>Day ${t.toFixed(1)}</b><span class="S">susceptible ${cS}</span><span class="I">infected ${cI}</span><span class="R">recovered ${cR}</span>${cV ? `<span class="V">vaccinated ${cV}</span>` : ''}`;
+  },
+  tick(dt) {
+    if (RM) return;
+    if (this.tA >= this.T) { this.hold += dt; if (this.hold > 2.2) { this.tA = 0; this.hold = 0; } else return; }
+    this.tA = Math.min(this.T, this.tA + dt * (this.T / 14));
+    this.draw();
+  },
+});
+
+/* =========================================================
+   4. RUMOUR
+   ========================================================= */
+register({
+  id: 'rum',
+  state: { beta: 0.3, gamma: 0.1, alpha: 0, lam: 0 },
+  controls: [
+    { key: 'beta', label: 'Spreading rate β', min: 0.05, max: 1, step: 0.01, fmt: v => v.toFixed(2) },
+    { key: 'gamma', label: 'Stifling rate γ', min: 0.02, max: 0.5, step: 0.01, fmt: v => v.toFixed(2) },
+    { type: 'head', label: 'Interventions and growth' },
+    { key: 'alpha', label: 'Education campaign α', min: 0, max: 0.1, step: 0.005, fmt: v => v.toFixed(3), hint: 'Share of ignorants taught per day to ignore the rumour.' },
+    { key: 'lam', label: 'Newcomers per day Λ', min: 0, max: 10, step: 1 },
+  ],
+  sim(alpha) {
+    const { beta, gamma, lam } = this.state;
+    return integrate((_, y) => {
+      const N = y[0] + y[1] + y[2], sp = beta * y[1] * y[0] / N, sf = gamma * (y[1] + y[2]) / N * y[1];
+      return [lam - sp - alpha * y[0], sp - sf, sf + alpha * y[0], sp];
+    }, [990, 10, 0, 10], 100, 0.05, 2);
+  },
+  compute() {
+    const { beta, gamma, alpha, lam } = this.state, c = beta / gamma, R0 = 1 + c;
+    const r = this.sim(alpha); this.r = r; this.base = alpha > 0 ? this.sim(0) : null;
+    const S = r.col(1); let pi = 0; for (let i = 1; i < S.length; i++) if (S[i] > S[pi]) pi = i;
+    const pure = alpha === 0 && lam === 0, i0 = 0.99;
+    const smaxTh = 1 - (1 / c) * (1 + Math.log(i0) - i0 + Math.log(R0));
+    let rinf = 1; for (let k = 0; k < 500; k++) rinf = 1 - Math.exp(-R0 * rinf);
+    const last = r.ys[r.ys.length - 1], Ntot = 1000 + lam * 100, reach = last[3] / Ntot;
+    let drift = 0;
+    if (pure) {
+      const Q = y => y[1] / 1000 - Math.log(y[0] / 1000) / c + (1 / c + 1) * y[0] / 1000, q0 = Q(r.ys[0]);
+      for (const y of r.ys) drift = Math.max(drift, Math.abs(Q(y) - q0));
+    }
+    Object.assign(this, { R0, c, smaxTh, rinf, pure, pi });
+    renderKpis($('#rum-kpi'), [
+      { label: 'Basic reproduction number', value: 'R₀ ' + R0.toFixed(2), sub: '1 + β/γ, always above 1' },
+      { label: 'Peak spreaders', value: fmtInt(S[pi]), sub: pure ? `theory ${fmtInt(smaxTh * 1000)} · day ${r.t[pi].toFixed(0)}` : `day ${r.t[pi].toFixed(0)}` },
+      { label: 'Ever heard and spread it', value: Math.round(reach * 100) + '%', sub: pure ? `theory r(∞) = ${Math.round(rinf * 100)}%` : `of ${fmtInt(Ntot)} people` },
+      { label: 'Education needed to stop it', value: Math.round((1 - 1 / R0) * 100) + '%', sub: 'immunise 1 − 1/R₀ beforehand' },
+      pure ? { label: 'Conserved quantity drift', value: drift < 1e-12 ? '< 1e-12' : drift.toExponential(1), sub: 's − ln(i)/c + (1/c + 1)i', tone: drift < 1e-6 ? 'good' : 'warn' } : null,
+    ].filter(Boolean));
+    const notes = [];
+    notes.push(`Unlike a virus, the rumour never reaches everyone. Even with R₀ = ${R0.toFixed(1)}, about ${Math.round((1 - rinf) * 100)}% of people never hear it, because spreaders lose interest as the stiflers pile up.`);
+    if (alpha > 0) { const bS = this.base.col(1); notes.push(`The campaign cuts peak spreaders from ${fmtInt(Math.max(...bS))} to ${fmtInt(S[pi])}.`); }
+    else notes.push('Raise the education rate α to watch the peak shrink. A few percent a day is enough.');
+    if (pure) notes.push('The dashed line is the closed-form peak s_max = 1 − (1/c)(1 + ln i₀ − i₀ + ln R₀), derived from the conserved quantity. The solver lands on it.');
+    else notes.push('Closed-form results assume a fixed population and no campaign. Set α and Λ to 0 to compare them with the solver.');
+    renderNotes($('#rum-notes'), notes);
+    $('#rum-lg-b').hidden = !this.base;
+  },
+  draw() {
+    const r = this.r, t = r.t, series = [{ x: t, y: r.col(0), color: 's' }, { x: t, y: r.col(2), color: 'r' }, { x: t, y: r.col(1), color: 'i', width: 2.75 }];
+    if (this.base) series.push({ x: this.base.t, y: this.base.col(1), color: 'i', width: 1.5, dash: [5, 4], alpha: .7 });
+    const ymax = Math.max(1000, ...r.ys.map(y => y[0] + y[1] + y[2])) * 1.04;
+    drawChart($('#rum-c1'), { xMax: 100, yMax: ymax, xLabel: 'days', series, hlines: this.pure ? [{ y: this.smaxTh * 1000, color: 'i', label: 'theory s_max', left: false }] : [] });
+    const R = [], rI = [], sM = []; for (let x = 1.02; x <= 10.0001; x += 0.04) {
+      R.push(x); let v = 1; for (let k = 0; k < 300; k++) v = 1 - Math.exp(-x * v); rI.push(v);
+      const c = x - 1; sM.push(Math.max(0, 1 - (1 / c) * (1 + Math.log(.99) - .99 + Math.log(x))));
+    }
+    drawChart($('#rum-c2'), { xMin: 1, xMax: 10, yMax: 1.05, xLabel: 'R₀', series: [{ x: R, y: rI, color: 'r' }, { x: R, y: sM, color: 'i' }],
+      vlines: this.R0 <= 10 ? [{ x: this.R0, color: 'muted', label: 'now', dy: 70 }] : [],
+      dots: this.R0 <= 10 ? [{ color: 'r', pts: [[this.R0, this.rinf]] }, { color: 'i', pts: [[this.R0, Math.max(0, this.smaxTh)]] }] : [] });
+  },
+});
+
+/* =========================================================
+   5. MONTE CARLO
+   ========================================================= */
+register({
+  id: 'mc', N0: 1000, TS: 100,
+  state: { lam: 0.05, runs: 100, n: 5000 },
+  controls: [
+    { type: 'head', label: 'Radioactive decay' },
+    { key: 'lam', label: 'Decay constant λ', min: 0.01, max: 0.3, step: 0.005, fmt: v => v.toFixed(3), unit: '/s' },
+    { key: 'runs', label: 'Repeat experiment', min: 10, max: 500, step: 10, unit: 'times' },
+    { type: 'head', label: 'Coin tosses' },
+    { key: 'n', label: 'Tosses per sequence', min: 100, max: 20000, step: 100, fmt: fmtInt },
+    { type: 'button', label: 'Draw new random numbers', act: 'reroll' },
+  ],
+  init() { this.seed = 11; this.tA = 0; this.hold = 0; $('#mc-replay').onclick = () => { this.restart(); this.draw(); }; },
+  reroll() { this.seed = 1 + Math.floor(Math.random() * 1e6); this.compute(); this.restart(); this.draw(); },
+  restart() { this.tA = RM ? this.TS : 0; this.hold = 0; },
+  compute() {
+    const { lam, runs, n } = this.state, N0 = this.N0, TS = this.TS;
+    const mean = new Float64Array(TS + 1), m2 = new Float64Array(TS + 1), show = [];
+    let ks = null;
+    for (let r = 0; r < runs; r++) {
+      const rnd = mulberry32(this.seed * 1009 + r), hist = new Uint32Array(TS + 2);
+      if (r === 0) ks = new Float32Array(N0);
+      for (let a = 0; a < N0; a++) { const k = Math.max(1, Math.ceil(-Math.log(1 - rnd()) / lam)); if (r === 0) ks[a] = k; hist[Math.min(k, TS + 1)]++; }
+      const row = new Float64Array(TS + 1); let dec = 0;
+      for (let t = 0; t <= TS; t++) { if (t > 0) dec += hist[t]; row[t] = N0 - dec; mean[t] += row[t]; m2[t] += row[t] * row[t]; }
+      if (r < 12) show.push(row);
+    }
+    const t = [], mu = [], lo = [], hi = [], th = [];
+    for (let i = 0; i <= TS; i++) { const m = mean[i] / runs, sd = Math.sqrt(Math.max(0, m2[i] / runs - m * m)); t.push(i); mu.push(m); lo.push(m - sd); hi.push(m + sd); th.push(N0 * Math.exp(-lam * i)); }
+    let hl = null; for (let i = 1; i <= TS; i++) if (mu[i] <= N0 / 2) { hl = i - 1 + (mu[i - 1] - N0 / 2) / (mu[i - 1] - mu[i]); break; }
+    let maxDev = 0; for (let i = 0; i <= TS; i++) maxDev = Math.max(maxDev, Math.abs(mu[i] - th[i]));
+    const iH = Math.min(TS, Math.round(Math.LN2 / lam)), sdH = (hi[iH] - lo[iH]) / 2, sdTh = Math.sqrt(N0 * Math.exp(-lam * iH) * (1 - Math.exp(-lam * iH)));
+    // coins
+    const seqs = [], rc = mulberry32(this.seed * 31 + 5), stride = Math.max(1, Math.floor(n / 1500));
+    for (let s = 0; s < 6; s++) { const xs = [], ys = []; let h = 0; for (let i = 1; i <= n; i++) { if (rc() < .5) h++; if (i < 200 || i % stride === 0 || i === n) { xs.push(i); ys.push(h / i); } } seqs.push({ x: xs, y: ys }); }
+    const finals = seqs.map(s => s.y[s.y.length - 1]);
+    Object.assign(this, { t, mu, lo, hi, th, show, ks, seqs });
+    renderKpis($('#mc-kpi'), [
+      { label: 'Half-life', value: hl == null ? `> ${TS} s` : hl.toFixed(1) + ' s', sub: `theory ln 2/λ = ${(Math.LN2 / lam).toFixed(1)} s` },
+      { label: 'Spread at the half-life', value: '±' + sdH.toFixed(1), unit: 'atoms', sub: `theory ±${sdTh.toFixed(1)} (binomial)` },
+      { label: 'Mean vs N₀e^−λt', value: maxDev.toFixed(1), unit: 'atoms', sub: `worst gap over ${runs} runs`, tone: maxDev < 3 * sdTh / Math.sqrt(runs) + 1 ? 'good' : 'warn' },
+      { label: `Heads after ${fmtInt(n)} tosses`, value: `${Math.min(...finals).toFixed(3)}–${Math.max(...finals).toFixed(3)}`, sub: `95% band ±${(1.96 * .5 / Math.sqrt(n)).toFixed(3)}` },
+    ]);
+    renderNotes($('#mc-notes'), [
+      'Each atom gets an exact random decay time. Nothing in the code says "exponential", yet the average of the runs traces N₀e^−λt.',
+      `Run-to-run noise is largest near the half-life, where each atom's fate is closest to a coin flip, and the spread of the mean shrinks like 1/√runs.`,
+      'On the coin plot the x-axis is logarithmic: every tenfold increase in tosses narrows the band by about √10 ≈ 3.2×.',
+    ]);
+  },
+  draw() {
+    const TS = this.TS;
+    const series = this.show.map(r => ({ x: this.t, y: Array.from(r), color: 'v', width: 1, alpha: .3 }));
+    series.push({ x: this.t, y: this.hi, base: this.lo, color: 'v', fill: true, fillAlpha: .2, width: 0 }, { x: this.t, y: this.mu, color: 'v', width: 2.5 }, { x: this.t, y: this.th, color: 'ink', width: 1.5, dash: [5, 4] });
+    const tA = Math.min(this.tA, TS);
+    drawChart($('#mc-c1'), { xMax: TS, yMax: 1040, xLabel: 'seconds', series, vlines: tA < TS ? [{ x: tA, color: 'muted', dash: [2, 3], width: 1 }] : [] });
+    const cols = ['s', 'i', 'r', 'v', 'amber', 'accent'];
+    const n = this.state.n, f = x => .5 + 1.96 * .5 / Math.sqrt(x), g = x => .5 - 1.96 * .5 / Math.sqrt(x), fx = [];
+    for (let x = 1; x <= n; x *= 1.05) fx.push(x); fx.push(n);
+    drawChart($('#mc-c2'), { xMin: 1, xMax: n, xLog: true, yMax: 1, xLabel: 'tosses', series: [
+      ...this.seqs.map((s, i) => ({ ...s, color: cols[i], width: 1.5, alpha: .85 })),
+      { x: fx, y: fx.map(f), color: 'muted', width: 1.25, dash: [5, 4] }, { x: fx, y: fx.map(g), color: 'muted', width: 1.25, dash: [5, 4] }],
+      hlines: [{ y: .5, color: 'ink', dash: [1, 3] }] });
+    this.drawGrid();
+  },
+  drawGrid() {
+    const c = setupCanvas($('#mc-grid')); if (!c) return; const { ctx, W, H } = c;
+    const cols = 40, rows = 25, t = Math.min(this.tA, this.TS), cell = Math.min(W / cols, (H - 4) / rows), ox = (W - cell * cols) / 2, oy = (H - cell * rows) / 2;
+    let alive = 0; const ks = this.ks;
+    for (let i = 0; i < 1000; i++) {
+      const x = ox + (i % cols) * cell, y = oy + Math.floor(i / cols) * cell, on = ks[i] > t;
+      if (on) alive++;
+      const fresh = !on && t - ks[i] < 3;
+      ctx.fillStyle = on ? PAL.v : fresh ? PAL.amber : PAL.line;
+      ctx.globalAlpha = on ? 1 : fresh ? 1 - (t - ks[i]) / 3 * .6 : .55;
+      ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+    }
+    ctx.globalAlpha = 1;
+    $('#mc-status').innerHTML = `<b>t = ${t.toFixed(0)} s</b><span class="V">undecayed ${alive}</span><span>expected ${Math.round(1000 * Math.exp(-this.state.lam * t))}</span>`;
+  },
+  tick(dt) {
+    if (RM) return;
+    if (this.tA >= this.TS) { this.hold += dt; if (this.hold > 2) { this.tA = 0; this.hold = 0; } else return; }
+    this.tA = Math.min(this.TS, this.tA + dt * 12); this.draw();
+  },
+});
+
+/* =========================================================
+   6. RANDOM WALK
+   ========================================================= */
+register({
+  id: 'walk', W2: 250, S2: 500,
+  state: { p: 0.5, n: 200, M: 2000 },
+  controls: [
+    { type: 'head', label: '1-D walk' },
+    { key: 'p', label: 'Probability of stepping right p', min: 0, max: 1, step: 0.01, fmt: v => v.toFixed(2) },
+    { key: 'n', label: 'Steps', min: 10, max: 500, step: 10 },
+    { key: 'M', label: 'Walkers', min: 100, max: 5000, step: 100, fmt: fmtInt },
+    { type: 'button', label: 'Draw new random numbers', act: 'reroll' },
+  ],
+  init() {
+    this.seed = 3; this.tA = 0; this.hold = 0; this.build2D();
+    $('#walk-replay').onclick = () => { this.tA = RM ? this.S2 : 0; this.hold = 0; this.draw2D(); };
+  },
+  reroll() { this.seed = 1 + Math.floor(Math.random() * 1e6); this.build2D(); this.compute(); this.tA = RM ? this.S2 : 0; this.draw(); },
+  build2D() {
+    const W2 = this.W2, S2 = this.S2, rnd = mulberry32(this.seed * 97 + 1), P = new Int16Array(W2 * (S2 + 1) * 2);
+    const D = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    for (let w = 0; w < W2; w++) { let x = 0, y = 0; for (let s = 1; s <= S2; s++) { const d = D[Math.floor(rnd() * 8)]; x += d[0]; y += d[1]; const k = (w * (S2 + 1) + s) * 2; P[k] = x; P[k + 1] = y; } }
+    this.P2 = P; this.tA = RM ? S2 : 0;
+  },
+  compute() {
+    const { p, n, M } = this.state, rnd = mulberry32(this.seed * 131 + n), pos = new Int16Array(M), SH = 50;
+    const traj = Array.from({ length: SH }, () => new Float32Array(n + 1)), mean = [0], vr = [0];
+    for (let s = 1; s <= n; s++) {
+      let sum = 0, sq = 0;
+      for (let w = 0; w < M; w++) { const x = pos[w] += rnd() < p ? 1 : -1; sum += x; sq += x * x; if (w < SH) traj[w][s] = x; }
+      const m = sum / M; mean.push(m); vr.push(sq / M - m * m);
+    }
+    const counts = new Map(); for (const x of pos) counts.set(x, (counts.get(x) || 0) + 1);
+    const muT = n * (2 * p - 1), varT = 4 * n * p * (1 - p);
+    Object.assign(this, { traj, mean, vr, counts, muT, varT });
+    renderKpis($('#walk-kpi'), [
+      { label: 'Mean final position', value: mean[n].toFixed(2), sub: `theory n(2p − 1) = ${muT.toFixed(1)}` },
+      { label: 'Variance of final position', value: vr[n].toFixed(1), sub: `theory 4np(1 − p) = ${varT.toFixed(1)}` },
+      { label: 'Typical distance from mean', value: '±' + Math.sqrt(vr[n]).toFixed(1), unit: 'steps', sub: `after ${n} steps, grows like √n` },
+    ]);
+    renderNotes($('#walk-notes'), [
+      p === 0.5 ? 'With p = 0.5 the walkers spread out symmetrically: the mean stays at 0 while the cloud widens like √n.'
+                : `With p = ${p.toFixed(2)} the cloud drifts ${p > .5 ? 'right' : 'left'} by ${Math.abs(2 * p - 1).toFixed(2)} per step, and the bias also narrows it: the variance is ${Math.round(4 * p * (1 - p) * 100)}% of the unbiased case.`,
+      'The histogram uses bins two steps wide, because after n steps a walker can only stand on positions with the same parity as n.',
+      'In 2-D the dashed circle has radius √(1.5n). Walkers inside it at any moment are the typical ones; quadrupling the steps only doubles the circle.',
+    ]);
+  },
+  draw() {
+    const { n, M } = this.state, t = Array.from({ length: n + 1 }, (_, i) => i), sd = Math.sqrt(this.varT);
+    const lim = Math.max(10, Math.abs(this.muT) + 4.2 * Math.max(sd, 1), ...this.traj.map(r => Math.max(...r.map(Math.abs))) * 1.05);
+    const th = t.map(i => i * (2 * this.state.p - 1)), env = t.map(i => 2 * Math.sqrt(4 * i * this.state.p * (1 - this.state.p)));
+    drawChart($('#walk-c1'), { xMax: n, yMin: -lim, yMax: lim, xLabel: 'step', series: [
+      ...this.traj.map(r => ({ x: t, y: Array.from(r), color: 's', width: 1, alpha: .28 })),
+      { x: t, y: th.map((v, i) => v + env[i]), color: 'ink', width: 1.25, dash: [5, 4] }, { x: t, y: th.map((v, i) => v - env[i]), color: 'ink', width: 1.25, dash: [5, 4] },
+      { x: t, y: this.mean, color: 'i', width: 2.5 }] });
+    const lo = Math.floor(this.muT - 4.2 * Math.max(sd, 1)), hi = Math.ceil(this.muT + 4.2 * Math.max(sd, 1));
+    const bars = []; let ymax = 0;
+    for (const [x, c] of this.counts) { const y = c / M; ymax = Math.max(ymax, y); bars.push({ x0: x - 1, x1: x + 1, y, color: 's', alpha: .55 }); }
+    const nx = [], ny = []; if (sd > 0) for (let x = lo; x <= hi; x += (hi - lo) / 200) { nx.push(x); ny.push(2 * Math.exp(-((x - this.muT) ** 2) / (2 * this.varT)) / Math.sqrt(TAU * this.varT)); }
+    ymax = Math.max(ymax, ...ny, 0.01);
+    drawChart($('#walk-c2'), { xMin: lo - 1, xMax: hi + 1, yMax: ymax * 1.12, xLabel: 'final position', bars, series: [{ x: nx, y: ny, color: 'i', width: 2 }] });
+    this.draw2D();
+  },
+  draw2D() {
+    const c = setupCanvas($('#walk-2d')); if (!c) return; const { ctx, W, H } = c;
+    const S2 = this.S2, W2 = this.W2, s = Math.floor(Math.min(this.tA, S2)), P = this.P2, cx = W / 2, cy = H / 2;
+    const sc = (Math.min(W, H) / 2 - 12) / (3.3 * Math.sqrt(0.75 * S2));
+    ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
+    for (const r of [1, 2, 3]) { ctx.beginPath(); ctx.arc(cx, cy, r * Math.sqrt(0.75 * S2) * sc, 0, TAU); ctx.stroke(); }
+    const cols = ['i', 'r', 'v', 'amber', 'accent', 's'];
+    for (let w = 0; w < 6; w++) {
+      ctx.strokeStyle = PAL[cols[w]]; ctx.globalAlpha = .75; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx, cy);
+      for (let k = 1; k <= s; k++) { const j = (w * (S2 + 1) + k) * 2; ctx.lineTo(cx + P[j] * sc, cy - P[j + 1] * sc); } ctx.stroke();
+    }
+    ctx.globalAlpha = .8; ctx.fillStyle = PAL.s; let sumR = 0;
+    ctx.beginPath();
+    for (let w = 0; w < W2; w++) { const j = (w * (S2 + 1) + s) * 2, x = P[j], y = P[j + 1]; sumR += Math.hypot(x, y); const px = cx + x * sc, py = cy - y * sc; ctx.moveTo(px + 2.4, py); ctx.arc(px, py, 2.4, 0, TAU); }
+    ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = PAL.ink; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, Math.sqrt(1.5 * s) * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = PAL.ink; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, TAU); ctx.fill();
+    $('#walk-status').innerHTML = `<b>step ${s}</b><span>mean distance ${(sumR / W2).toFixed(1)}</span><span>theory √(3πn/8) = ${Math.sqrt(3 * Math.PI * s / 8).toFixed(1)}</span><span>RMS radius √(1.5n) = ${Math.sqrt(1.5 * s).toFixed(1)}</span>`;
+  },
+  tick(dt) {
+    if (RM) return;
+    if (this.tA >= this.S2) { this.hold += dt; if (this.hold > 2) { this.tA = 0; this.hold = 0; } else return; }
+    this.tA = Math.min(this.S2, this.tA + dt * 55); this.draw2D();
+  },
+});
+
+/* ---------- app shell ---------- */
+function activate(id) {
+  if (!MODS[id]) id = 'pk';
+  active = MODS[id];
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mod === id)));
+  document.querySelectorAll('.mod').forEach(s => s.hidden = s.id !== id);
+  if (!active.inited) { buildControls(active); active.init?.(); updateVis(active); active.compute(); active.restart?.(); active.inited = true; }
+  active.draw();
+  try { history.replaceState(null, '', '#' + id); } catch (e) {}
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => activate(b.dataset.mod)));
+readPalette();
+let rz = 0; addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => active?.draw()); });
+const retheme = () => { readPalette(); active?.draw(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+let last = performance.now();
+function frame(ts) { const dt = Math.min(0.1, (ts - last) / 1000); last = ts; if (active?.tick && !document.hidden) active.tick(dt); requestAnimationFrame(frame); }
+const start = (location.hash || '').slice(1);
+activate(MODS[start] ? start : 'sir');
+if (document.fonts?.ready) document.fonts.ready.then(() => active?.draw());
+requestAnimationFrame(frame);
+</script>

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modeling-lab"
+version = "0.2.0"
+description = "Epidemics, 3D shapes and markets on one numerical toolkit, served live by Flask."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Tirth Chaudhari" }]
+dependencies = [
+    "flask>=3.0",
+    "numpy>=1.22",
+    "scipy>=1.8",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "statsmodels>=0.14",
+]
+
+[project.optional-dependencies]
+rnn = ["torch>=2.1"]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
