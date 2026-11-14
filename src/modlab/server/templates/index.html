@@ -4,391 +4,48 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Modeling Lab</title>
+<meta name="description" content="Epidemics, 3D shapes, stock markets and a Snake AI on one numerical toolkit, computed live by a Flask server.">
+<script>
+  // Apply the saved theme before first paint, so there is no flash.
+  try { const t = localStorage.getItem('ml-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..750&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..750&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js" defer></script>
 <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </head>
 <body>
-<header class="bar">
-  <div class="wrap">
-    <div class="brand">
-      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="5" cy="16" r="3" fill="var(--s1)"/><path d="M8 16 C 11 4, 14 4, 19 6" fill="none" stroke="var(--s2)" stroke-width="2.2" stroke-linecap="round"/><rect x="14" y="13" width="6" height="6" rx="1.5" fill="var(--s3)"/></svg>
-      Modeling Lab
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Navigation">
+    <div class="side-head">
+      <a class="brand" href="#/" aria-label="Modeling Lab home">
+        <svg width="24" height="24" viewBox="0 0 22 22" aria-hidden="true"><circle cx="5" cy="16" r="3" fill="var(--s1)"/><path d="M8 16 C 11 4, 14 4, 19 6" fill="none" stroke="var(--s2)" stroke-width="2.2" stroke-linecap="round"/><rect x="14" y="13" width="6" height="6" rx="1.5" fill="var(--s3)"/></svg>
+        Modeling Lab
+      </a>
     </div>
-    <nav class="tabs" role="tablist" aria-label="Sections">
-      <button class="tab" role="tab" id="t-overview" aria-controls="v-overview" data-v="overview">Overview</button>
-      <button class="tab" role="tab" id="t-spread" aria-controls="v-spread" data-v="spread"><span class="k">1</span>Spread</button>
-      <button class="tab" role="tab" id="t-shape" aria-controls="v-shape" data-v="shape"><span class="k">2</span>Shape</button>
-      <button class="tab" role="tab" id="t-markets" aria-controls="v-markets" data-v="markets"><span class="k">3</span>Markets</button>
-      <button class="tab" role="tab" id="t-crossover" aria-controls="v-crossover" data-v="crossover"><span class="k">×</span>Crossover</button>
-      <button class="tab" role="tab" id="t-api" aria-controls="v-api" data-v="api">API</button>
-    </nav>
-    <div class="livebar" aria-live="polite"><span class="dot-live" id="live-dot"></span><span id="live-text">connecting…</span></div>
+    <button class="search-btn" type="button" data-palette>
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
+      Jump to a model<kbd>⌘K</kbd>
+    </button>
+    <nav class="nav" id="nav" aria-label="Models"></nav>
+    <div class="side-foot">
+      <span class="status-pill" id="status" title="Server health"><i></i><span>connecting…</span></span>
+      <button class="icon-btn" type="button" id="theme" aria-label="Switch theme"></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div style="min-width:0">
+    <header class="topbar">
+      <button class="icon-btn" type="button" id="menu" aria-label="Open navigation" aria-controls="side" aria-expanded="false"></button>
+      <a class="brand" href="#/">Modeling Lab</a>
+      <button class="icon-btn" type="button" data-palette aria-label="Jump to a model"></button>
+    </header>
+    <main class="content" id="view" tabindex="-1"></main>
   </div>
-</header>
-
-<main class="wrap">
-
-<!-- ============================================================ OVERVIEW -->
-<section class="view" id="v-overview" role="tabpanel" aria-labelledby="t-overview">
-  <div class="hero">
-    <p class="eyebrow">Tirth Chaudhari · computational modelling</p>
-    <h1>Epidemics, 3D shapes and stock markets, computed live on one numerical toolkit</h1>
-    <p class="lede">Every chart in this app comes from a Flask server that solves the model when you move a control: <b>RK4 integration, Monte Carlo simulation, eigen-decompositions, least-squares fits and walk-forward model training</b>. Nothing is precomputed. Each panel shows how long the server took.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn primary" type="button" data-goto="crossover">See the crossover study</button>
-      <button class="btn" type="button" data-goto="api">Browse the API</button>
-    </div>
-  </div>
-  <div class="grid3">
-    <article class="card">
-      <p class="eyebrow">Pillar 1 · Spread</p>
-      <h3>How things move through a population</h3>
-      <p>Six models from the MC312 mathematical-modelling labs: drug dosing, product adoption, a 1978 flu outbreak, rumours, radioactive decay and random walks.</p>
-      <dl class="kv"><div><dt>Solver</dt><dd>RK4 + Monte Carlo</dd></div><div><dt>Fit</dt><dd>least squares</dd></div><div><dt>Endpoints</dt><dd>9</dd></div></dl>
-      <div class="go"><button class="btn" type="button" data-goto="spread">Open Spread →</button></div>
-    </article>
-    <article class="card">
-      <p class="eyebrow">Pillar 2 · Shape</p>
-      <h3>Geometry processing from first principles</h3>
-      <p>The ShapeLab library: Fourier descriptors, statistical shape models, curvature, Laplace–Beltrami spectra and skeletal skinning on real meshes.</p>
-      <dl class="kv"><div><dt>Eigensolver</dt><dd>shift-invert Lanczos</dd></div><div><dt>Meshes</dt><dd>cat, bunny, cactus</dd></div><div><dt>Endpoints</dt><dd>11</dd></div></dl>
-      <div class="go"><button class="btn" type="button" data-goto="shape">Open Shape →</button></div>
-    </article>
-    <article class="card">
-      <p class="eyebrow">Pillar 3 · Markets</p>
-      <h3>Can machine learning predict the stock market?</h3>
-      <p>Walk-forward forecasting of returns and volatility for six stocks, 1993–2026, refit year by year on your request; LSTM and GRU train as background jobs.</p>
-      <dl class="kv"><div><dt>Models</dt><dd>ridge, GBM, ARIMA, GARCH, HAR, RNN</dd></div><div><dt>Tests</dt><dd>Diebold–Mariano, Kupiec</dd></div></dl>
-      <div class="go"><button class="btn" type="button" data-goto="markets">Open Markets →</button></div>
-    </article>
-  </div>
-  <div class="study">
-    <div class="study-h"><span class="tag">Architecture</span><h2>What happens when you move a slider</h2>
-      <p>The browser sends the parameters to a JSON endpoint. Flask validates them, runs the computation in Python and returns arrays plus the compute time. Expensive pure results such as eigenbases and fitted models are kept in an in-memory LRU cache, keyed by their inputs. Training that takes longer than a request runs in a background worker that the page polls.</p></div>
-    <pre class="tree" aria-label="Request flow">browser ── GET /api/spread/sir?beta=1.7&amp;alpha=0.44 ──▶ <b>Flask</b>
-                                                     ├─ validate params (400 on bad input)
-                                                     ├─ <b>modlab.spread</b> → <b>modlab.core.ode.rk4</b>
-                                                     └─ JSON + meta.compute_ms
-browser ── POST /api/jobs {kind: "lstm_trap"} ──────▶ <b>job worker</b> (thread) ─▶ progress ─▶ GET /api/jobs/&lt;id&gt;</pre>
-  </div>
-</section>
-
-<!-- ============================================================ SPREAD -->
-<section class="view" id="v-spread" role="tabpanel" aria-labelledby="t-spread" hidden>
-  <div class="study-h"><span class="tag">Pillar 1</span><h2>Spread: six MC312 models, solved on the server</h2>
-    <p>Pick a model. Every control sends a request; the server integrates the equations with RK4 (or simulates them) and the chart redraws.</p></div>
-  <div class="subnav" role="group" aria-label="Model">
-    <button type="button" data-v="dosing">Dosing<span class="lab">L2</span></button>
-    <button type="button" data-v="bass">Adoption<span class="lab">L4</span></button>
-    <button type="button" data-v="sir">Epidemic<span class="lab">L5–6</span></button>
-    <button type="button" data-v="rumour">Rumour<span class="lab">L7–8</span></button>
-    <button type="button" data-v="chance">Chance<span class="lab">L9</span></button>
-    <button type="button" data-v="walk">Random walk<span class="lab">L10</span></button>
-  </div>
-
-  <div class="panel" data-panel="dosing" hidden>
-    <header><h3>Repeated dosing and the therapeutic window</h3><span class="compute"></span>
-      <p>Phenytoin defaults: 22-hour half-life, 12% absorbed, a 10–20 µg/mL window. One compartment uses the exact solution; gut → blood is integrated with RK4.</p></header>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Model" data-seg="model"><button type="button" data-v="one" aria-pressed="true">One compartment</button><button type="button" data-v="two" aria-pressed="false">Gut → blood</button></div>
-      <span class="chip" data-out="chip"></span>
-    </div>
-    <div class="controls">
-      <div class="ctl"><label>Dose <output></output></label><input type="range" data-k="dose" min="25" max="400" step="5"></div>
-      <div class="ctl"><label>Interval τ <output></output></label><input type="range" data-k="tau" min="2" max="24" step="1"></div>
-      <div class="ctl"><label>Half-life <output></output></label><input type="range" data-k="half_life" min="2" max="72" step="1"></div>
-      <div class="ctl"><label>Fraction absorbed <output></output></label><input type="range" data-k="absorbed" min="0.02" max="1" step="0.01"></div>
-      <div class="ctl"><label>Gut → blood k₁ <output></output></label><input type="range" data-k="ka" min="0.05" max="3" step="0.05"></div>
-      <div class="ctl"><label>First dose ×<output></output></label><input type="range" data-k="load" min="1" max="10" step="0.1"></div>
-      <div class="ctl"><label>MEC <output></output></label><input type="range" data-k="mec" min="1" max="40" step="0.5"></div>
-      <div class="ctl"><label>MTC <output></output></label><input type="range" data-k="mtc" min="2" max="60" step="0.5"></div>
-      <button class="btn" type="button" data-act="loading">Apply the loading dose</button>
-    </div>
-    <div class="readout"></div>
-    <div class="legend"><span style="color:var(--s1)"><i></i>Blood</span><span style="color:var(--s4)"><i></i>Gut (two compartments)</span><span style="color:var(--s3)"><i class="box" style="opacity:.4"></i>Therapeutic window</span></div>
-    <div class="plot-host"></div>
-    <p class="cap" data-out="note"></p>
-  </div>
-
-  <div class="panel" data-panel="bass" hidden>
-    <header><h3>Bass diffusion: advertising and word of mouth</h3><span class="compute"></span>
-      <p>dN/dt = (p + qN/M)(M − N), integrated with RK4 and drawn over the closed-form solution (dashed).</p></header>
-    <div class="controls">
-      <div class="ctl"><label>Innovation p <output></output></label><input type="range" data-k="p" min="0.001" max="0.15" step="0.001"></div>
-      <div class="ctl"><label>Imitation q <output></output></label><input type="range" data-k="q" min="0" max="1" step="0.01"></div>
-      <div class="ctl"><label>Market size <output></output></label><input type="range" data-k="market" min="5" max="500" step="5"></div>
-      <div class="ctl"><label>Horizon <output></output></label><input type="range" data-k="years" min="10" max="40" step="1"></div>
-    </div>
-    <div class="readout"></div>
-    <div class="grid2">
-      <div><div class="legend"><span style="color:var(--s1)"><i></i>RK4</span><span style="color:var(--s2)"><i></i>Closed form</span></div><div class="plot-host"></div></div>
-      <div><div class="legend"><span style="color:var(--s2)"><i></i>Outside influence</span><span style="color:var(--s3)"><i></i>Word of mouth</span></div><div class="plot-host"></div></div>
-    </div>
-  </div>
-
-  <div class="panel" data-panel="sir" hidden>
-    <header><h3>Flu in a boarding school, January 1978</h3><span class="compute"></span>
-      <p>763 boys, one initial case. Dots are the real daily counts in bed. Fit β and α by least squares on the server, then try vaccination or a lockdown.</p></header>
-    <div class="controls">
-      <div class="ctl"><label>Transmission β <output></output></label><input type="range" data-k="beta" min="0.2" max="3" step="0.01"></div>
-      <div class="ctl"><label>Recovery α <output></output></label><input type="range" data-k="alpha" min="0.1" max="1" step="0.01"></div>
-      <div class="ctl"><label>Vaccinate <output></output></label><input type="range" data-k="vaccinate" min="0" max="30" step="1"></div>
-      <div class="ctl check"><label><input type="checkbox" data-k="lockdown"> Lockdown</label></div>
-      <div class="ctl lock"><label>Starts <output></output></label><input type="range" data-k="lock_start" min="0" max="15" step="1"></div>
-      <div class="ctl lock"><label>Lasts <output></output></label><input type="range" data-k="lock_days" min="1" max="20" step="1"></div>
-      <div class="ctl lock"><label>Contacts cut <output></output></label><input type="range" data-k="lock_cut" min="0" max="90" step="5"></div>
-      <button class="btn primary" type="button" data-act="fit">Fit to the 1978 data</button>
-    </div>
-    <p class="cap" data-out="fit"></p>
-    <div class="readout"></div>
-    <div class="legend"><span style="color:var(--s1)"><i></i>Susceptible</span><span style="color:var(--s2)"><i></i>Infected</span><span style="color:var(--s3)"><i></i>Recovered</span><span style="color:var(--s2)"><i class="dot"></i>In bed, 1978</span></div>
-    <div class="plot-host"></div>
-  </div>
-
-  <div class="panel" data-panel="rumour" hidden>
-    <header><h3>How a rumour spreads and stops</h3><span class="compute"></span>
-      <p>1,000 people, 10 spreaders. A spreader stops after meeting someone who already knows. Without a campaign or newcomers, the peak matches a closed form from a conserved quantity.</p></header>
-    <div class="controls">
-      <div class="ctl"><label>Spreading β <output></output></label><input type="range" data-k="beta" min="0.05" max="1" step="0.01"></div>
-      <div class="ctl"><label>Stifling γ <output></output></label><input type="range" data-k="gamma" min="0.02" max="0.5" step="0.01"></div>
-      <div class="ctl"><label>Campaign α <output></output></label><input type="range" data-k="alpha" min="0" max="0.1" step="0.005"></div>
-      <div class="ctl"><label>Newcomers <output></output></label><input type="range" data-k="newcomers" min="0" max="10" step="1"></div>
-    </div>
-    <div class="readout"></div>
-    <div class="legend"><span style="color:var(--s1)"><i></i>Never heard</span><span style="color:var(--s2)"><i></i>Spreading</span><span style="color:var(--s3)"><i></i>Stopped</span></div>
-    <div class="plot-host"></div>
-  </div>
-
-  <div class="panel" data-panel="chance" hidden>
-    <header><h3>Monte Carlo: decay and coin tosses</h3><span class="compute"></span>
-      <p>Each of 1,000 atoms gets an exact random decay time; nothing in the code says "exponential", yet the average tracks N₀e^−λt.</p></header>
-    <div class="controls">
-      <div class="ctl"><label>Decay constant λ <output></output></label><input type="range" data-k="lam" min="0.01" max="0.3" step="0.005"></div>
-      <div class="ctl"><label>Repeat <output></output></label><input type="range" data-k="runs" min="10" max="500" step="10"></div>
-      <div class="ctl"><label>Coin tosses <output></output></label><input type="range" data-k="n" min="100" max="50000" step="100"></div>
-      <button class="btn" type="button" data-act="reroll">New random numbers</button>
-    </div>
-    <div class="readout"></div>
-    <div class="grid2">
-      <div><div class="legend"><span style="color:var(--s1)"><i></i>Mean ± sd of runs</span><span style="color:var(--s2)"><i></i>N₀e^−λt</span></div><div class="plot-host"></div></div>
-      <div><div class="legend"><span style="color:var(--neutral)"><i class="box"></i>95% band for a fair coin</span></div><div class="plot-host"></div></div>
-    </div>
-  </div>
-
-  <div class="panel" data-panel="walk" hidden>
-    <header><h3>Random walks in one and two dimensions</h3><span class="compute"></span>
-      <p>Each walker steps right with probability p. Theory: mean n(2p − 1), variance 4np(1 − p), and a normal shape by the central limit theorem.</p></header>
-    <div class="controls">
-      <div class="ctl"><label>Step right p <output></output></label><input type="range" data-k="p" min="0" max="1" step="0.01"></div>
-      <div class="ctl"><label>Steps <output></output></label><input type="range" data-k="steps" min="10" max="500" step="10"></div>
-      <div class="ctl"><label>Walkers <output></output></label><input type="range" data-k="walkers" min="100" max="5000" step="100"></div>
-      <button class="btn" type="button" data-act="reroll">New random numbers</button>
-    </div>
-    <div class="readout"></div>
-    <div class="grid2">
-      <div><div class="legend"><span style="color:var(--s1)"><i></i>Mean of walkers</span><span style="color:var(--s2)"><i></i>Theory ± 2 sd</span></div><div class="plot-host"></div></div>
-      <div><div class="legend"><span style="color:var(--s1)"><i class="box"></i>Final positions</span><span style="color:var(--s2)"><i></i>Normal approximation</span></div><div class="plot-host"></div></div>
-    </div>
-    <div><p class="cap">Twelve 2-D walkers (eight-neighbour steps).</p><div class="plot-host"></div></div>
-  </div>
-</section>
-
-<!-- ============================================================ SHAPE -->
-<section class="view" id="v-shape" role="tabpanel" aria-labelledby="t-shape" hidden>
-  <div class="study-h"><span class="tag">Pillar 2</span><h2>Shape: the ShapeLab library behind an API</h2>
-    <p>Every view calls the Python library: FFTs, Procrustes alignment, sparse eigen-decompositions of the cotangent Laplacian and quaternion skinning.</p></div>
-  <div class="subnav" role="group" aria-label="Module">
-    <button type="button" data-v="fourier">Fourier descriptors</button>
-    <button type="button" data-v="jaw">Shape model</button>
-    <button type="button" data-v="spectral">Spectral analysis</button>
-    <button type="button" data-v="curvature">Curvature</button>
-    <button type="button" data-v="skinning">Skinning</button>
-  </div>
-
-  <div class="panel" data-panel="fourier" hidden>
-    <header><h3>Fourier descriptors: an outline from a handful of numbers</h3><span class="compute"></span>
-      <p>The outline becomes one complex signal x + iy. Keep the lowest frequencies and invert; Parseval gives the error of every choice. Click the error curve to jump.</p></header>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Outline" data-seg="outline"><button type="button" data-v="bird1" aria-pressed="true">Bird 1</button><button type="button" data-v="bird2" aria-pressed="false">Bird 2</button></div>
-      <div class="ctl"><label>Coefficients kept <output></output></label><input type="range" data-k="keep" min="1" max="200" step="1"></div>
-    </div>
-    <div class="readout"></div>
-    <div class="legend"><span style="color:var(--s1)"><i></i>Original</span><span style="color:var(--s2)"><i></i>Reconstruction</span></div>
-    <div class="grid2"><div class="plot-host"></div><div class="plot-host"></div></div>
-  </div>
-
-  <div class="panel" data-panel="jaw" hidden>
-    <header><h3>A statistical shape model of 300 jawlines</h3><span class="compute"></span>
-      <p>Generalised Procrustes alignment removes position, size and rotation; PCA finds the modes. Move along each mode in standard deviations.</p></header>
-    <div class="controls">
-      <div class="ctl"><label>Mode 1 <output></output></label><input type="range" data-k="b1" min="-3" max="3" step="0.1"></div>
-      <div class="ctl"><label>Mode 2 <output></output></label><input type="range" data-k="b2" min="-3" max="3" step="0.1"></div>
-      <div class="ctl"><label>Mode 3 <output></output></label><input type="range" data-k="b3" min="-3" max="3" step="0.1"></div>
-    </div>
-    <div class="readout"></div>
-    <div class="legend"><span style="color:var(--neutral)"><i></i>Aligned jaws and mean (dashed)</span><span style="color:var(--s2)"><i></i>Model shape</span></div>
-    <div class="grid2"><div class="plot-host"></div><div class="plot-host"></div></div>
-  </div>
-
-  <div class="panel" data-panel="spectral" hidden>
-    <header><h3>Laplace–Beltrami spectrum: a Fourier basis for surfaces</h3><span class="compute"></span>
-      <p>The eigenfunctions of the cotangent Laplacian are computed once per mesh with shift-invert Lanczos, then reused: changing k is a single projection.</p></header>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Mesh" data-seg="mesh"><button type="button" data-v="cat4" aria-pressed="true">Cat</button><button type="button" data-v="bunny" aria-pressed="false">Bunny</button></div>
-      <div class="seg" role="group" aria-label="View" data-seg="view"><button type="button" data-v="smooth" aria-pressed="true">Smoothing</button><button type="button" data-v="segment" aria-pressed="false">Segmentation</button></div>
-      <div class="ctl only-smooth"><label>Eigenfunctions k <output></output></label><input type="range" data-k="k" min="1" max="120" step="1"></div>
-      <div class="ctl only-seg"><label>Parts <output></output></label><input type="range" data-k="parts" min="2" max="10" step="1"></div>
-    </div>
-    <div class="readout"></div>
-    <div class="grid2"><div class="viewer3d"></div><div class="only-smooth"><div class="plot-host"></div><p class="cap">Click the curve to choose k.</p></div></div>
-  </div>
-
-  <div class="panel" data-panel="curvature" hidden>
-    <header><h3>Curvature on meshes and on a parametric patch</h3><span class="compute"></span>
-      <p>Left: discrete Gaussian or mean curvature per vertex (blue negative, red positive), with the Gauss–Bonnet check. Right: K over a patch z = f(u, v) from the fundamental forms.</p></header>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Mesh" data-seg="mesh"><button type="button" data-v="cat4" aria-pressed="true">Cat</button><button type="button" data-v="bunny" aria-pressed="false">Bunny</button><button type="button" data-v="cactus" aria-pressed="false">Cactus</button></div>
-      <div class="seg" role="group" aria-label="Field" data-seg="field"><button type="button" data-v="gaussian" aria-pressed="true">Gaussian K</button><button type="button" data-v="mean" aria-pressed="false">Mean H</button></div>
-      <div class="seg" role="group" aria-label="Surface" data-seg="surface"><button type="button" data-v="saddle" aria-pressed="true">Saddle</button><button type="button" data-v="monkey" aria-pressed="false">Monkey saddle</button><button type="button" data-v="paraboloid" aria-pressed="false">Paraboloid</button></div>
-    </div>
-    <div class="readout"></div>
-    <div class="readout" data-out="surf"></div>
-    <div class="grid2"><div class="viewer3d"></div><div class="plot-host"></div></div>
-  </div>
-
-  <div class="panel" data-panel="skinning" hidden>
-    <header><h3>Skinning: why dual quaternions keep a twisted arm round</h3><span class="compute"></span>
-      <p>Linear blend skinning averages rotation matrices, which are not rotations, so the mesh collapses where weights mix. Quaternion and dual-quaternion blending keep every vertex transform rigid.</p></header>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Mesh" data-seg="mesh"><button type="button" data-v="cylinder" aria-pressed="true">Cylinder twist</button><button type="button" data-v="cactus" aria-pressed="false">Cactus bend</button></div>
-      <div class="seg" role="group" aria-label="Method" data-seg="method"><button type="button" data-v="lbs" aria-pressed="false">LBS</button><button type="button" data-v="nlerp" aria-pressed="false">NLERP</button><button type="button" data-v="slerp" aria-pressed="false">SLERP</button><button type="button" data-v="dqs" aria-pressed="true">DQS</button></div>
-      <div class="ctl"><label>Angle <output></output></label><input type="range" data-k="angle" min="-360" max="360" step="5"></div>
-    </div>
-    <div class="readout"></div>
-    <div class="grid2"><div class="viewer3d"></div><div><div class="plot-host"></div><p class="cap">Share of each ring's radius kept along the cylinder.</p></div></div>
-  </div>
-</section>
-
-<!-- ============================================================ MARKETS -->
-<section class="view" id="v-markets" role="tabpanel" aria-labelledby="t-markets" hidden>
-  <div id="markets-root"></div>
-</section>
-
-<!-- ============================================================ CROSSOVER -->
-<section class="view" id="v-crossover" role="tabpanel" aria-labelledby="t-crossover" hidden>
-  <div class="prose">
-    <p class="eyebrow">Crossover study · modlab.crossover</p>
-    <h2 style="color:var(--ink)">Markets through the other two lenses</h2>
-    <p>The Markets pillar asks whether a model can forecast tomorrow. This study asks three different questions, each with a tool built for another field, and recomputes everything when you change a threshold.</p>
-  </div>
-
-  <div class="study" data-study="rw">
-    <div class="study-h"><span class="tag">A · Labs 9–10</span><h2>Is a stock the random walk from Lab 10?</h2>
-      <p>Give Lab 10's walker the stock's average step and spread. By eye it looks the same. Four tests show where it fails.</p></div>
-    <div class="seg" role="group" aria-label="Ticker" data-seg="ticker"><button type="button" data-v="SPY" aria-pressed="true">SPY</button><button type="button" data-v="AAPL" aria-pressed="false">AAPL</button><button type="button" data-v="MSFT" aria-pressed="false">MSFT</button><button type="button" data-v="NVDA" aria-pressed="false">NVDA</button><button type="button" data-v="JPM" aria-pressed="false">JPM</button><button type="button" data-v="XOM" aria-pressed="false">XOM</button></div>
-    <div class="panel" data-panel="rw-paths">
-      <header><h3><span data-out="ticker">SPY</span> next to random walks with the same drift and volatility</h3><span class="compute"></span><p>Growth of $1, log scale. Grey paths take independent weekly steps.</p></header>
-      <div class="controls"><button class="btn" type="button" data-act="walks">Draw new walks</button><div class="readout"></div></div>
-      <div class="legend"><span style="color:var(--s1)"><i></i>Real, total return</span><span style="color:var(--neutral)"><i></i>Random walks</span></div>
-      <div class="plot-host"></div>
-    </div>
-    <div class="panel" data-panel="rw-study">
-      <header><h3>Four tests of the random-walk hypothesis</h3><span class="compute"></span><p>Tails, variance ratios with a permutation band and the Lo–MacKinlay robust test, autocorrelation of returns and their size, and a Monte Carlo distribution of the worst crash.</p></header>
-      <div class="controls">
-        <div class="ctl"><label>Monte Carlo histories <output></output></label><input type="range" data-k="sims" min="200" max="5000" step="100"></div>
-        <button class="btn" type="button" data-act="reseed">New random seed</button>
-        <div class="seg" role="group" aria-label="Returns" data-seg="tails"><button type="button" data-v="raw" aria-pressed="true">Raw returns</button><button type="button" data-v="scaled" aria-pressed="false">Volatility-scaled</button></div>
-      </div>
-      <h3>Fat tails</h3>
-      <div class="readout" data-out="tails"></div>
-      <div class="legend"><span style="color:var(--s1)"><i class="box"></i>Real days</span><span style="color:var(--s2)"><i></i>Normal random walk</span></div>
-      <div class="plot-host"></div>
-      <div class="grid2">
-        <div><h3>Variance ratio</h3><div class="legend"><span style="color:var(--s1)"><i></i>Real</span><span style="color:var(--neutral)"><i class="box"></i>Shuffled 95%</span></div><div class="plot-host"></div><p class="cap" data-out="vr"></p></div>
-        <div><h3>Memory</h3><div class="legend"><span style="color:var(--s1)"><i></i>|r|</span><span style="color:var(--s2)"><i></i>r</span><span style="color:var(--neutral)"><i class="box"></i>No-memory band</span></div><div class="plot-host"></div></div>
-      </div>
-      <h3>Worst crash in a simulated history</h3>
-      <div class="readout" data-out="mdd"></div>
-      <div class="legend"><span style="color:var(--neutral)"><i class="box"></i>Normal walks</span><span style="color:var(--s3)"><i></i>Resampled real days</span><span style="color:var(--s1)"><i></i>Real</span></div>
-      <div class="plot-host"></div>
-    </div>
-    <div class="verdict"></div>
-  </div>
-
-  <div class="study" data-study="dose">
-    <div class="study-h"><span class="tag">B · Lab 2</span><h2>Does fear clear like a drug dose?</h2>
-      <p>Treat each VIX spike as a dose. How fast is it cleared, and does one compartment describe it?</p></div>
-    <div class="panel" data-panel="dose-events">
-      <header><h3>Clearance after <span data-out="n"></span> VIX spikes</h3><span class="compute"></span><p>A spike is a peak at least this many times the prior 3-month median. The fits are one- and two-compartment elimination.</p></header>
-      <div class="controls">
-        <div class="ctl"><label>Spike threshold <output></output></label><input type="range" data-k="ratio" min="1.3" max="2.5" step="0.05"></div>
-        <div class="ctl"><label>Minimum gap between spikes <output></output></label><input type="range" data-k="gap" min="21" max="126" step="1"></div>
-      </div>
-      <div class="readout"></div>
-      <div class="legend"><span style="color:var(--s1)"><i></i>Median spike</span><span style="color:var(--s1)"><i class="box" style="opacity:.35"></i>Middle 50%</span><span style="color:var(--s2)"><i></i>One compartment</span><span style="color:var(--s3)"><i></i>Two compartments</span></div>
-      <div class="plot-host"></div>
-      <details><summary>Every spike, with the days it took to lose half its excess</summary><div class="tbl-wrap"><table><thead><tr><th>Peak</th><th>VIX</th><th>Prior median</th><th>Days to half</th></tr></thead><tbody></tbody></table></div></details>
-    </div>
-    <div class="panel" data-panel="dose-model">
-      <header><h3>Rebuild the VIX from doses and clearance alone</h3><span class="compute"></span><p>Only jumps above the threshold count as doses; otherwise the excess decays toward the median. Press Fit to let the server choose the clearance by least squares.</p></header>
-      <div class="controls">
-        <div class="seg" role="group" aria-label="Compartments" data-seg="comp"><button type="button" data-v="1" aria-pressed="true">One compartment</button><button type="button" data-v="2" aria-pressed="false">Two compartments</button></div>
-        <div class="ctl"><label>Half-life <output></output></label><input type="range" data-k="half_life" min="1" max="60" step="0.5"></div>
-        <div class="ctl"><label>Dose threshold <output></output></label><input type="range" data-k="threshold" min="1" max="8" step="0.1"></div>
-        <button class="btn primary" type="button" data-act="fit">Fit clearance</button>
-      </div>
-      <div class="seg" role="group" aria-label="Window" data-seg="window"><button type="button" data-v="all" aria-pressed="true">1993–2026</button><button type="button" data-v="2008" aria-pressed="false">2008</button><button type="button" data-v="2020" aria-pressed="false">2020</button><button type="button" data-v="2025" aria-pressed="false">2025</button></div>
-      <div class="readout"></div>
-      <div class="legend"><span style="color:var(--s1)"><i></i>VIX</span><span style="color:var(--s2)"><i></i>Doses + clearance</span></div>
-      <div class="plot-host"></div>
-    </div>
-    <div class="verdict"></div>
-  </div>
-
-  <div class="study" data-study="shape">
-    <div class="study-h"><span class="tag">C · ShapeLab</span><h2>Do market crashes have a shape?</h2>
-      <p>Each completed drawdown runs from its peak back to that peak. Stretch time to 0–1, scale depth to 1, sample landmarks, then PCA, as ShapeLab does for jawlines. Rotation is left out because time and price can't be swapped.</p></div>
-    <div class="grid2">
-      <div class="panel" data-panel="crash-model">
-        <header><h3>The crash shape model</h3><span class="compute"></span><p>Dashed: the mean crash. Move along each mode, or pick a real crash.</p></header>
-        <div class="controls">
-          <div class="ctl"><label>Mode 1 · U ↔ V <output></output></label><input type="range" data-k="b1" min="-3" max="3" step="0.1"></div>
-          <div class="ctl"><label>Mode 2 · early ↔ late bottom <output></output></label><input type="range" data-k="b2" min="-3" max="3" step="0.1"></div>
-          <div class="ctl"><label>Mode 3 · double dip ↔ single bottom <output></output></label><input type="range" data-k="b3" min="-3" max="3" step="0.1"></div>
-        </div>
-        <div class="legend"><span style="color:var(--neutral)"><i></i>Mean</span><span style="color:var(--s2)"><i></i>Model</span><span style="color:var(--s1)"><i></i>Selected crash</span></div>
-        <div class="plot-host"></div>
-        <p class="cap" data-out="sel"></p>
-      </div>
-      <div class="panel" data-panel="crash-space">
-        <header><h3>Crashes in shape space</h3><span class="compute"></span><p>Change what counts as a crash and the whole model is refit.</p></header>
-        <div class="controls">
-          <div class="ctl"><label>SPY depth ≥ <output></output></label><input type="range" data-k="spy_depth" min="0.05" max="0.4" step="0.01"></div>
-          <div class="ctl"><label>Single stock depth ≥ <output></output></label><input type="range" data-k="stock_depth" min="0.1" max="0.6" step="0.01"></div>
-          <div class="ctl"><label>Landmarks <output></output></label><input type="range" data-k="landmarks" min="16" max="128" step="4"></div>
-        </div>
-        <div class="legend"><span style="color:var(--s1)"><i class="dot"></i>SPY</span><span style="color:var(--s3)"><i class="dot"></i>Single stocks</span></div>
-        <div class="plot-host"></div>
-        <div class="readout"></div>
-      </div>
-    </div>
-    <div class="verdict"></div>
-  </div>
-</section>
-
-<!-- ============================================================ API -->
-<section class="view" id="v-api" role="tabpanel" aria-labelledby="t-api" hidden>
-  <div class="study-h"><span class="tag">API</span><h2>Every endpoint the page uses</h2>
-    <p>JSON in, JSON out. Errors are always <span class="mono">{"error": {"code", "message"}}</span>. Click a GET endpoint to call it with its defaults.</p></div>
-  <div class="panel"><div class="api-list" id="api-list"></div><pre class="tree" id="api-out" hidden></pre></div>
-</section>
-</main>
-
-<footer><div class="wrap">Modeling Lab · Tirth Chaudhari · Educational research, not investment advice · Market data: Yahoo Finance, frozen 13 Oct 2026 · Flu data: BMJ, 1978</div></footer>
+</div>
+<noscript><p style="padding:24px">Modeling Lab needs JavaScript to talk to its server.</p></noscript>
 </body>
 </html>

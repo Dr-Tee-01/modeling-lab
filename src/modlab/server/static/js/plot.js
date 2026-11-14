@@ -95,8 +95,10 @@ const registry = new Set();
 export function responsive(host, draw) {
   let lastW = 0;
   const run = () => { if (host.clientWidth > 0) { lastW = host.clientWidth; draw(host); } };
-  new ResizeObserver(() => { if (host.clientWidth > 0 && host.clientWidth !== lastW) run(); }).observe(host);
+  const ro = new ResizeObserver(() => { if (host.clientWidth > 0 && host.clientWidth !== lastW) run(); });
+  ro.observe(host);
   registry.add(run);
+  run.dispose = () => { ro.disconnect(); registry.delete(run); };
   return run;
 }
 export const redrawAll = () => registry.forEach(r => r());

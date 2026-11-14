@@ -1,6 +1,6 @@
 # Modeling Lab
 
-Epidemics, 3D shapes and stock markets, computed live on one numerical toolkit.
+Epidemics, 3D shapes, stock markets and a Snake-playing AI, computed live on one numerical toolkit.
 
 A Flask server solves every model when the page asks for it. Moving a slider sends a
 request; the server runs an RK4 integration, a Monte Carlo simulation, an
@@ -16,6 +16,26 @@ the page polls.
 | **Shape** | The ShapeLab geometry library: Fourier descriptors, Procrustes shape models, curvature, Laplace–Beltrami spectra, skinning | FFTs, Procrustes + PCA, sparse eigensolves, LBS/DQS deformation |
 | **Markets** | Walk-forward forecasting of returns and volatility for six stocks, 1993–2026 | Yearly refits of ridge, gradient boosting, ARIMA, GARCH, HAR; LSTM/GRU as jobs |
 | **Crossover** | The market data seen through the other two toolkits | Variance-ratio tests, VIX "dose" fits, PCA of 68 crash shapes |
+| **Agents** | The Snake-Game project: play it, watch four agents play it, train its deep Q-network | Headless Snake on the server; random, greedy and BFS agents; DQN training as a job |
+
+## The interface
+
+Every one of the 21 views uses the same workbench layout, so once you have used one you
+can use them all:
+
+- a **live illustration** of how the model works, redrawn as you move a control;
+- **result tiles** with the headline numbers, coloured when a number signals something;
+- a **controls rail** with named scenarios, grouped controls, help on every control and
+  a value you can type;
+- **chart cards** with legends and hover tooltips, and a loading sweep while the server works;
+- **What this shows** (plain-language insights from the current numbers) and **The maths**.
+
+The address bar always holds the current settings, so **Copy link** shares an exact
+setup. Press **⌘K** (or **/**) to jump to any model. Light and dark themes follow the
+system and can be switched in the sidebar. Views are plain spec objects
+(`static/js/views/*.js`) rendered by one engine (`static/js/ui/workbench.js`), which is
+what keeps them consistent. `node tools/check_views.mjs spread shape markets crossover agents`
+smoke-tests every spec against a running server.
 
 ## Run it
 
@@ -77,6 +97,7 @@ every route, and the API tab in the app calls them.
 | Shape | `/api/shape/{outlines, fourier, jaw-model, jaw-sample, meshes, mesh/<name>, spectral, segment, curvature, surface-curvature, skin}` |
 | Markets | `/api/markets/{tickers, prices, volatility, returns, stylized}`, jobs `rnn_returns`, `lstm_trap` |
 | Crossover | `/api/crossover/{random-walk, walks, vix-events, vix-model, crash-shapes, crash-sample}` |
+| Agents | `/api/agents/snake/{episode, models, weights}`, jobs `snake_dqn`, `snake_compare` |
 | Jobs | `POST /api/jobs {"kind": ..., ...}`, `GET /api/jobs/<id>` |
 
 Example:
@@ -94,6 +115,7 @@ src/modlab/
   core/        rk4, Monte Carlo helpers, PCA, least squares   (shared by every pillar)
   spread/      the six MC312 models
   crossover/   the crossover study, parameterised
+  agents/      Snake environment, random / greedy / BFS agents, DQN training
   markets/     live walk-forward forecasting on top of stocklab
   shape_service.py   memoised calls into shapelab
   server/      Flask app: api_*.py blueprints, jobs, cache, templates/, static/
@@ -118,6 +140,9 @@ web/, crossover/crossover.py   the earlier static demo and its build scripts
   companies that exist today.
 
 *Educational research project. Not investment advice.*
+
+The Agents section is a headless port of the Snake-Game project (pygame + PyTorch DQN):
+same board, rules, rewards and 11-feature state, with the replay-target loop batched.
 
 Credits: ShapeLab began as IT575 Computational Shape Modeling coursework (Autumn
 2024) with Varun Vyas. Jawline landmarks from the Helen dataset. Flu data: BMJ, 1978.

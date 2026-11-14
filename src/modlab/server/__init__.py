@@ -16,7 +16,7 @@ from .api import ApiError
 from .jobs import JobManager, blueprint as jobs_blueprint
 
 # Each module defines `bp` (a Blueprint) and may register job kinds on import.
-API_MODULES = ["spread", "crossover", "shape", "markets"]
+API_MODULES = ["spread", "crossover", "shape", "markets", "agents"]
 
 
 def create_app(config: dict | None = None) -> Flask:

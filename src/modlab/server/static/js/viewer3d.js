@@ -22,7 +22,6 @@ export function viewer(host) {
     if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
   }
-  new ResizeObserver(size).observe(host);
 
   function frame(positions) {
     geo.computeBoundingSphere();
@@ -59,7 +58,10 @@ export function viewer(host) {
       size();
     },
   };
-  (function loop() { requestAnimationFrame(loop); if (host.offsetParent !== null) { controls.update(); renderer.render(scene, camera); } })();
+  let running = true;
+  const ro = new ResizeObserver(size); ro.observe(host);
+  (function loop() { if (!running) return; requestAnimationFrame(loop); if (host.offsetParent !== null) { controls.update(); renderer.render(scene, camera); } })();
+  api.dispose = () => { running = false; ro.disconnect(); controls.dispose(); geo?.dispose(); material.dispose(); renderer.dispose(); };
   return api;
 }
 
