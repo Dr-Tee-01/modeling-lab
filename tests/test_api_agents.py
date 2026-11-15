@@ -98,3 +98,42 @@ def test_compare_job(client):
     assert set(a) == {"random", "greedy"} and len(a["greedy"]["scores"]) == 5
     bad = client.post("/api/jobs", json={"kind": "snake_compare", "agents": ["nope"]})
     assert bad.status_code == 400
+
+
+def test_catalog_describes_the_game():
+    from modlab.server import create_app
+    cat = create_app().test_client().get("/api/catalog").get_json()["agents"]
+    assert cat["board"] == {"w": S.W, "h": S.H, "start_length": 3}
+    assert cat["features"] == S.FEATURES and cat["actions"] == S.ACTIONS
+    assert set(cat["agents"]) == set(S.AGENTS) and all("label" in a and "short" in a for a in cat["agents"].values())
+
+
+def test_interactive_game_runs_on_the_server():
+    from modlab.server import create_app
+    c = create_app().test_client()
+    g = c.post("/api/agents/snake/play", json={"seed": 0}).get_json()
+    assert g["snake"] == [[16, 12], [15, 12], [14, 12]] and g["heading"] == 0 and not g["over"]
+    assert len(g["features"]) == len(S.FEATURES)
+    # reversing is ignored (keeps going right); then turn down
+    g = c.post(f"/api/agents/snake/play/{g['id']}/step", json={"direction": 2}).get_json()
+    assert g["snake"][0] == [17, 12] and g["heading"] == 0
+    g = c.post(f"/api/agents/snake/play/{g['id']}/step", json={"direction": 1}).get_json()
+    assert g["snake"][0] == [17, 13] and g["heading"] == 1 and g["steps"] == 2
+    # run into the bottom wall: the game ends and further steps change nothing
+    for _ in range(S.H):
+        g = c.post(f"/api/agents/snake/play/{g['id']}/step", json={}).get_json()
+    assert g["over"] and g["cause"] == "wall"
+    again = c.post(f"/api/agents/snake/play/{g['id']}/step", json={}).get_json()
+    assert again["steps"] == g["steps"]
+    assert c.post("/api/agents/snake/play/missing/step", json={}).status_code == 404
+    assert c.post(f"/api/agents/snake/play/{g['id']}/step", json={"direction": 9}).status_code == 400
+
+
+def test_episode_and_compare_summaries():
+    e = S.episode("greedy", 2)
+    assert e["score_by_move"][-1] == e["score"] and len(e["score_by_move"]) == len(e["actions"])
+    assert abs(sum(e["summary"]["action_share"]) - 1) < 1e-9
+    res = S.compare(["random", "greedy"], 4, 1, None)
+    summ = S.compare_summary(res, 4, 1)
+    assert summ["best"] == "greedy" and summ["ranking"] == ["greedy", "random"]
+    assert summ["top_game"]["score"] == max(r["max"] for r in res.values()) and summ["seeds"] == [1, 4]

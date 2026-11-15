@@ -224,14 +224,30 @@ def episode(agent: str, seed: int, net: QNet | None = None, max_steps: int = 300
     out = {"agent": agent, "seed": seed, "score": env.score, "steps": env.steps, "cause": cause, "length": len(env.snake)}
     if record:
         hx, hy = w // 2, h // 2
+        n = max(1, len(actions))
         out.update(w=w, h=h, start=[[hx, hy], [hx - 1, hy], [hx - 2, hy]], heads=heads, ate=ate, foods=foods,
-                   actions=actions, states=states, q=qs or None, features=FEATURES, action_names=ACTIONS)
+                   actions=actions, states=states, q=qs or None, features=FEATURES, action_names=ACTIONS,
+                   score_by_move=np.cumsum(ate, dtype=int).tolist(),
+                   summary={"action_share": [actions.count(i) / n for i in range(3)],
+                            "steps_per_food": env.steps / env.score if env.score else None,
+                            "died": cause in ("wall", "self", "timeout")})
     return out
 
 
 def compare(agents: list[str], episodes: int, seed: int, net: QNet | None, max_steps: int = 3000) -> dict:
     return {name: summarise([episode(name, seed + i, net, max_steps, record=False) for i in range(episodes)])
             for name in agents}
+
+
+def compare_summary(results: dict, episodes: int, seed: int) -> dict:
+    """Headline numbers for a comparison: the ranking, the best single game, DQN vs BFS."""
+    ranking = sorted(results, key=lambda a: -results[a]["mean"])
+    top = max(results, key=lambda a: results[a]["max"])
+    out = {"ranking": ranking, "best": ranking[0], "top_game": {"agent": top, "score": results[top]["max"]},
+           "games": episodes * len(results), "seeds": [seed, seed + episodes - 1]}
+    if "dqn" in results and "bfs" in results and results["bfs"]["mean"] > 0:
+        out["dqn_vs_bfs"] = results["dqn"]["mean"] / results["bfs"]["mean"]
+    return out
 
 
 def summarise(runs: list[dict]) -> dict:
@@ -343,13 +359,15 @@ def train_dqn(params: dict, progress) -> dict:
     entry = {"id": model_id, "games": games, "hidden": hidden, "lr": lr, "gamma": gamma, "explore_games": explore,
              "seed": seed, "record": record, "mean_last50": float(np.mean(last)), "seconds": time.perf_counter() - t0,
              "created": time.time(), "net": net,
-             "curve": {"scores": scores, "mean": means, "epsilon": epsilons, "steps": steps_per_game, "loss": losses}}
+             "epsilon_start": explore / 200,
+             "curve": {"scores": scores, "mean": means, "epsilon": epsilons, "steps": steps_per_game, "loss": losses,
+                       "roll20": [float(np.mean(scores[max(0, i - 19):i + 1])) for i in range(len(scores))],
+                       "first20_mean": float(np.mean(scores[:20])), "last20_mean": float(np.mean(scores[-20:]))}}
     with _LOCK:
         _MODELS[model_id] = entry
         for old in sorted(_MODELS.values(), key=lambda m: m["created"])[:-5]:
             _MODELS.pop(old["id"], None)
-    return {"model": {k: v for k, v in entry.items() if k not in ("net", "curve")}, "scores": scores, "mean": means,
-            "epsilon": epsilons, "steps": steps_per_game, "loss": losses}
+    return {"model": {k: v for k, v in entry.items() if k not in ("net", "curve")}, **entry["curve"]}
 
 
 def weights(model_id: str | None) -> dict | None:
@@ -358,3 +376,106 @@ def weights(model_id: str | None) -> dict | None:
         return None
     n = m["net"]
     return {"id": m["id"], "w1": n.w1, "b1": n.b1, "w2": n.w2, "b2": n.b2, "features": FEATURES, "actions": ACTIONS}
+
+
+# --------------------------------------------------------------------- reference data for the interface
+AGENT_INFO = {
+    "random": {"label": "Random walker", "short": "Random", "decides": "coin flip", "sees": "11 features",
+               "what": "Picks straight, right or left at random: Lab 10's random walk with a body.",
+               "insight": "A random walker almost never finds food: it hits a wall within about a hundred moves."},
+    "greedy": {"label": "Greedy", "short": "Greedy", "decides": "closer to food?", "sees": "11 features",
+               "what": "Steps toward the food, skipping moves that would kill it on the next step.",
+               "insight": "Greedy grows quickly but has no plan: as the body gets long it walks into dead ends it cannot see."},
+    "bfs": {"label": "BFS path-finder", "short": "BFS", "decides": "shortest path", "sees": "full grid",
+            "what": "Searches the shortest free path to the food; if none is safe, takes the move with the most room.",
+            "insight": "BFS sees the whole board and checks it keeps room to move, so it survives far longer than the others."},
+    "dqn": {"label": "Deep Q-network", "short": "DQN", "decides": "argmax Q", "sees": "11 features",
+            "what": "Your trained 11 → hidden → 3 network: it scores each move from 11 yes/no features and takes the best.",
+            "insight": "The DQN plays from 11 features only. Watch the danger chips light up just before it turns."},
+}
+CAUSES = {"wall": "hit a wall", "self": "hit itself", "timeout": "ran out of moves", "limit": "reached the step cap",
+          "won": "filled the board"}
+REPLAY_CAP = 3000
+
+
+def catalog() -> dict:
+    """Everything the Agents pages show about the game itself."""
+    return {"board": {"w": W, "h": H, "start_length": 3}, "features": FEATURES, "actions": ACTIONS,
+            "directions": DIR_NAMES, "agents": AGENT_INFO, "causes": CAUSES,
+            "rules": {"food_reward": 10, "death_reward": -10, "step_limit_per_length": 100, "replay_cap": REPLAY_CAP},
+            "dqn": {"inputs": len(FEATURES), "outputs": len(ACTIONS), "hidden": 256, "gamma": 0.9, "lr": 0.001,
+                    "explore_games": 80, "epsilon_divisor": 200, "replay_batch": 1000, "memory": 100_000}}
+
+
+# --------------------------------------------------------------------- interactive games, played on the server
+class PlaySession:
+    def __init__(self, sid: str, seed: int):
+        self.id, self.env = sid, SnakeEnv(seed=seed)
+        self.cause, self.compared, self.agreed = None, 0, 0
+        self.touched = time.time()
+
+
+_PLAY: dict[str, PlaySession] = {}
+_PLAY_LOCK = threading.Lock()
+_PLAY_MAX, _PLAY_TTL = 500, 3600
+_PLAY_RECORD = {"score": 0}
+
+
+def _suggest(sess: PlaySession):
+    m = get_model(None)
+    if m is None or sess.cause:
+        return None, None
+    q = m["net"].q(sess.env.state())
+    return m, [round(float(v), 3) for v in q]
+
+
+def play_view(sess: PlaySession) -> dict:
+    env = sess.env
+    m, q = _suggest(sess)
+    hint = None
+    if q is not None:
+        a = int(np.argmax(q))
+        hint = {"action": a, "direction": env.turn(a), "model": m["id"]}
+    return {"id": sess.id, "w": env.w, "h": env.h, "snake": [list(p) for p in env.snake],
+            "food": list(env.food) if env.food else None, "heading": env.d, "score": env.score,
+            "length": len(env.snake), "steps": env.steps, "over": sess.cause is not None, "cause": sess.cause,
+            "features": env.state().tolist(), "q": q, "hint": hint,
+            "agreement": {"compared": sess.compared, "agreed": sess.agreed,
+                          "share": sess.agreed / sess.compared if sess.compared else None},
+            "record": _PLAY_RECORD["score"]}
+
+
+def play_new(seed: int | None = None) -> dict:
+    with _PLAY_LOCK:
+        now = time.time()
+        for k in [k for k, v in _PLAY.items() if now - v.touched > _PLAY_TTL]:
+            _PLAY.pop(k)
+        while len(_PLAY) >= _PLAY_MAX:
+            _PLAY.pop(min(_PLAY.values(), key=lambda v: v.touched).id)
+        sid = f"g{next(_COUNTER)}{_random.getrandbits(32):08x}"
+        sess = _PLAY[sid] = PlaySession(sid, seed if seed is not None else _random.getrandbits(31))
+    return play_view(sess)
+
+
+def play_step(sid: str, direction: int | None) -> dict | None:
+    """Advance a game one move. `direction` is absolute (0 right, 1 down, 2 left, 3 up) or None to keep going;
+    turning straight back into the body is ignored, as in most Snake games."""
+    with _PLAY_LOCK:                                   # one move at a time, even if a client double-sends
+        sess = _PLAY.get(sid)
+        if sess is None:
+            return None
+        env = sess.env
+        sess.touched = time.time()
+        if sess.cause is None:
+            a = 0
+            if direction is not None and direction != (env.d + 2) % 4:
+                a = {env.d: 0, (env.d + 1) % 4: 1, (env.d + 3) % 4: 2}[direction]
+            _, q = _suggest(sess)
+            if q is not None:
+                sess.compared += 1
+                sess.agreed += int(np.argmax(q)) == a
+            _, done, _, why = env.step(a)
+            if done:
+                sess.cause = why
+            _PLAY_RECORD["score"] = max(_PLAY_RECORD["score"], env.score)
+        return play_view(sess)

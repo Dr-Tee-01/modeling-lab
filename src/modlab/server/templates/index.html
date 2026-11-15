@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="theme-color" content="#050A16">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon.svg') }}" type="image/svg+xml">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon-32.png') }}" sizes="32x32" type="image/png">
+<link rel="icon" href="{{ url_for('static', filename='icons/favicon-16.png') }}" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='icons/site.webmanifest') }}">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Modeling Lab</title>
-<meta name="description" content="Epidemics, 3D shapes, stock markets and a Snake AI on one numerical toolkit, computed live by a Flask server.">
+<title>ModeLab AI</title>
+<meta name="description" content="ModeLab AI: epidemics, 3D shapes, stock markets and a Snake AI on one numerical toolkit, computed live, with illustrated explanations and an AI tutor that answers in Hinglish or English.">
 <script>
-  // Apply the saved theme before first paint, so there is no flash.
-  try { const t = localStorage.getItem('ml-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  // Dark navy is the default; a saved choice wins. Applied before first paint, so there is no flash.
+  (function () { let t = null; try { t = localStorage.getItem('ml-theme'); } catch (e) {} document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark'; })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,9 +27,9 @@
 <div class="app" id="app">
   <aside class="side" id="side" aria-label="Navigation">
     <div class="side-head">
-      <a class="brand" href="#/" aria-label="Modeling Lab home">
-        <svg width="24" height="24" viewBox="0 0 22 22" aria-hidden="true"><circle cx="5" cy="16" r="3" fill="var(--s1)"/><path d="M8 16 C 11 4, 14 4, 19 6" fill="none" stroke="var(--s2)" stroke-width="2.2" stroke-linecap="round"/><rect x="14" y="13" width="6" height="6" rx="1.5" fill="var(--s3)"/></svg>
-        Modeling Lab
+      <a class="brand" href="#/" aria-label="ModeLab AI home">
+        <img class="brand-mark" src="{{ url_for('static', filename='icons/favicon.svg') }}" width="26" height="26" alt="">
+        <span class="wordmark">ModeLab<span class="ai-badge">AI</span></span>
       </a>
     </div>
     <button class="search-btn" type="button" data-palette>
@@ -40,12 +46,12 @@
   <div style="min-width:0">
     <header class="topbar">
       <button class="icon-btn" type="button" id="menu" aria-label="Open navigation" aria-controls="side" aria-expanded="false"></button>
-      <a class="brand" href="#/">Modeling Lab</a>
+      <a class="brand" href="#/" aria-label="ModeLab AI home"><img class="brand-mark" src="{{ url_for('static', filename='icons/favicon.svg') }}" width="22" height="22" alt=""><span class="wordmark">ModeLab<span class="ai-badge">AI</span></span></a>
       <button class="icon-btn" type="button" data-palette aria-label="Jump to a model"></button>
     </header>
     <main class="content" id="view" tabindex="-1"></main>
   </div>
 </div>
-<noscript><p style="padding:24px">Modeling Lab needs JavaScript to talk to its server.</p></noscript>
+<noscript><p style="padding:24px">ModeLab AI needs JavaScript to talk to its server.</p></noscript>
 </body>
 </html>

@@ -16,7 +16,7 @@
 //     reset(ctx) (optional: clear view-local state on Reset), destroy(ctx) }
 //   chart.sub / caption / legend may be functions of (d, s, ctx).
 import { call, fmtMs } from '../api.js';
-import { responsive } from '../plot.js';
+import { decorate, responsive } from '../plot.js';
 import { viewer } from '../viewer3d.js';
 import { h, helpButton, icon, seg, toast } from './dom.js';
 import { canvas } from './illustrate.js';
@@ -31,7 +31,7 @@ function coerce(p, raw) {
   return Math.min(p.max, Math.max(p.min, v));
 }
 
-export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {}) {
+export function mountWorkbench(root, spec, initial = {}, { onState, crumbs, accent } = {}) {
   const params = spec.params || [];
   const defaults = Object.fromEntries(params.map(p => [p.k, p.value]));
   const state = { ...defaults };
@@ -39,6 +39,7 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
   Object.assign(state, spec.hidden ? { ...spec.hidden } : {});
 
   let data = null, ctrl = null, timer = null, alive = true;
+  const lastKpi = new Map();
   const disposers = [];
   const ctx = { state, get data() { return data; }, extra: {}, call, toast, set, refresh, now, job, redraw: renderAll, root,
     setData(d) { data = d; errBox.hidden = true; badgeFor(d); renderAll(); } };
@@ -47,10 +48,11 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
   const badge = h('span.compute', { title: '' }, 'connecting…');
   const linkBtn = h('button.btn.sm', { type: 'button', onclick: copyLink, title: 'Copy a link to this exact setup' }, icon('link', ''), 'Copy link');
   const resetBtn = h('button.btn.sm.ghost', { type: 'button', onclick: reset, title: 'Back to the default parameters' }, icon('reset', ''), 'Reset');
+  const explainBtn = h('a.btn.sm.explain-btn', { href: `#/${spec.group}/${spec.id}/explain`, title: 'A step-by-step illustrated explanation of this model' }, icon('book', ''), 'See explanation');
   const head = h('header.wb-head',
     h('div.crumbs', crumbs || [], spec.tag ? h('span.lab', spec.tag) : null),
     h('div', h('h1', spec.title), spec.question ? h('p.question', spec.question) : null),
-    h('div.wb-head-actions', badge, params.length ? linkBtn : null, params.length ? resetBtn : null));
+    h('div.wb-head-actions', explainBtn, badge, params.length ? linkBtn : null, params.length ? resetBtn : null));
 
   /* ---------------- top: illustration + KPIs */
   const illHost = h('div', { 'data-k': spec.id });
@@ -131,6 +133,7 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
   if (!spec.insights || !spec.maths) foot.style.gridTemplateColumns = '1fr';
 
   const page = h('div.page.wb', head, top, body, (spec.insights || spec.maths) ? foot : null);
+  if (accent) page.style.setProperty('--sec', `var(--${accent})`);
   root.replaceChildren(page);
 
   /* ---------------- fields */
@@ -152,7 +155,9 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
     const scale = p.scale || 1, dec = decimals(p.step) + (scale === 100 ? -2 : 0);
     const range = h('input', { type: 'range', id: `f-${spec.id}-${p.k}`, min: p.min, max: p.max, step: p.step, 'aria-label': p.label });
     const num = h('input', { type: 'number', min: p.min * scale, max: p.max * scale, step: p.step * scale, 'aria-label': `${p.label} value` });
+    let shown = state[p.k], pulse = 0;
     const show = () => {
+      if (state[p.k] !== shown) { shown = state[p.k]; el.classList.add('tick'); clearTimeout(pulse); pulse = setTimeout(() => el.classList.remove('tick'), 280); }
       range.value = state[p.k];
       num.value = (state[p.k] * scale).toFixed(Math.max(0, dec));
       range.style.setProperty('--fill', ((state[p.k] - p.min) / (p.max - p.min) * 100) + '%');
@@ -225,7 +230,10 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
     try {
       rec.host.querySelector('.skeleton-plot')?.remove();
       if (rec.c.kind === '3d') { rec.v3 ||= viewer(rec.host); if (rec.v3) rec.c.draw(rec.v3, data, state, ctx); }
-      else rec.c.draw(rec.host, data, state, ctx);
+      else {
+        rec.c.draw(rec.host, data, state, ctx);
+        if (rec.c.kind !== 'html') { decorate(rec.host, { animate: !rec.drawn }); rec.drawn = true; }
+      }
     } catch (e) { console.error(`[${spec.id}] chart ${rec.c.id}`, e); }
   }
   function renderAll() {
@@ -233,10 +241,16 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
     charts.forEach(r => { if (r.host.classList.contains('empty')) { r.host.classList.remove('empty'); r.host.textContent = ''; } });
     if (spec.kpis) {
       const items = spec.kpis(data, state).filter(Boolean);
-      kpiBox.replaceChildren(...items.map(k => h('div.card.kpi' + (k.tone ? '.' + k.tone : ''),
-        h('span.k-label', k.label, k.help ? helpButton(k.help) : null),
-        h('span.k-value', k.value ?? '—', k.unit ? h('small', k.unit) : null),
-        k.note ? h('span.k-note', { html: k.note }) : null)));
+      kpiBox.replaceChildren(...items.map(k => {
+        const val = h('span.k-value', k.value ?? '—', k.unit ? h('small', k.unit) : null);
+        const card = h('div.card.kpi' + (k.tone ? '.' + k.tone : ''),
+          h('span.k-label', k.label, k.help ? helpButton(k.help) : null), val,
+          k.note ? h('span.k-note', { html: k.note }) : null);
+        const before = lastKpi.get(k.label), now = String(k.value ?? '—');
+        if (before != null && before !== now) { card.classList.add('flash'); countUp(val.firstChild, before, now); }
+        lastKpi.set(k.label, now);
+        return card;
+      }));
       kpiBox.hidden = !items.length;
     } else kpiBox.hidden = true;
     for (const rec of charts) {
@@ -259,6 +273,22 @@ export function mountWorkbench(root, spec, initial = {}, { onState, crumbs } = {
     if (!spec.illustration) return;
     try { const svg = canvas(illHost, spec.illustration.height || 220); spec.illustration.draw(svg, data, state, ctx); }
     catch (e) { console.error(`[${spec.id}] illustration`, e); }
+  }
+
+  /* Tween a tile's number from its previous value, keeping the server's formatting
+     (decimals, thousands separators, prefix and suffix). Text that is not a number just swaps. */
+  function countUp(node, from, to) {
+    if (!node || node.nodeType !== 3 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const re = /^([^\d\-−]*)([\-−]?[\d,]*\.?\d+)(.*)$/s, a = from.match(re), b = to.match(re);
+    if (!a || !b || a[1] !== b[1] || a[3] !== b[3]) return;
+    const num = x => parseFloat(x.replace(/,/g, '').replace('−', '-'));
+    const v0 = num(a[2]), v1 = num(b[2]);
+    if (!Number.isFinite(v0) || !Number.isFinite(v1) || v0 === v1) return;
+    const dec = (b[2].split('.')[1] || '').length, comma = b[2].includes(','), minus = b[2].startsWith('−') ? '−' : '-';
+    const fmt = v => { let s = Math.abs(v).toFixed(dec); if (comma) s = Number(s).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }); return (v < 0 ? minus : '') + s; };
+    const t0 = performance.now(), D = 520;
+    const step = t => { const f = Math.min(1, (t - t0) / D), e = 1 - Math.pow(1 - f, 3); node.textContent = b[1] + fmt(v0 + (v1 - v0) * e) + b[3]; if (f < 1 && node.isConnected) requestAnimationFrame(step); else node.textContent = to; };
+    node.textContent = from; requestAnimationFrame(step);
   }
 
   /* ---------------- header actions */

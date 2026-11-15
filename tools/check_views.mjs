@@ -4,7 +4,8 @@
 //
 // For every spec: checks the required fields, builds the default state, runs request()
 // against the server, then runs kpis() and insights() on the response, and each preset's
-// request. Charts and illustrations need a DOM and are checked in the browser instead.
+// request, and that the view has an explainer page (GET /api/explain/<group>/<view>).
+// Charts and illustrations need a DOM and are checked in the browser instead.
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -30,6 +31,9 @@ for (const g of groups) {
       }
       const state = { ...Object.fromEntries((spec.params || []).map(p => [p.k, p.value])), ...(spec.hidden || {}) };
       const ctx = { state, extra: {}, set() {}, refresh() {}, now() {}, toast() {}, setData() {} };
+      const ex = await fetch(`/api/explain/${g}/${spec.id}`).then(r => r.json());
+      if (ex.error) throw new Error(`explainer: ${ex.error.message}`);
+      const exNote = ` · explainer ${ex.sections.length} sections`;
       const t0 = Date.now();
       if (spec.request) {
         const d = await spec.request(state, new AbortController().signal, ctx);
@@ -45,9 +49,9 @@ for (const g of groups) {
             console.log(`  ⚠ ${label} preset "${pr.label}" needs a trained model first (expected on a fresh server)`);
           }
         }
-        console.log(`✓ ${label}  ${Date.now() - t0} ms  · ${kpis.length} tiles · ${ins.length} insights · ${(spec.presets || []).length} presets`);
+        console.log(`✓ ${label}  ${Date.now() - t0} ms  · ${kpis.length} tiles · ${ins.length} insights · ${(spec.presets || []).length} presets${exNote}`);
       } else {
-        console.log(`✓ ${label}  (no request; data comes from actions/jobs)`);
+        console.log(`✓ ${label}  (no request; data comes from actions/jobs)${exNote}`);
       }
     } catch (e) {
       failed++; console.log(`✗ ${label}: ${e.message}`);

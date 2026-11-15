@@ -4,8 +4,9 @@ from __future__ import annotations
 from flask import Blueprint
 
 from ..spread import models as M
-from .api import ApiError, choice, endpoint, flag, num
+from .api import ApiError, choice, clean, endpoint, flag, num
 from .cache import memo
+from .catalog import section
 
 bp = Blueprint("spread", __name__, url_prefix="/api/spread")
 MAX_CELLS = 4_000_000     # cap on simulated cells per request, to bound memory and time
@@ -26,7 +27,7 @@ def dosing():
         model=choice("model", "one", ["one", "two"]),
         dose_mg=num("dose", 100, 1, 2000), tau_h=num("tau", 8, 1, 48), half_life_h=num("half_life", 22, 0.5, 200),
         absorbed=num("absorbed", 0.12, 0.01, 1), ka=num("ka", 0.6, 0.01, 5), load=num("load", 1, 1, 20),
-        mec=mec, mtc=mtc, t_end=num("hours", 240, 24, 720),
+        mec=mec, mtc=mtc, t_end=num("hours", M.DOSING_HOURS, 24, 720),
     )
 
 
@@ -43,7 +44,7 @@ def sir():
     return M.sir(beta=num("beta", 1.66, 0.05, 5), alpha=num("alpha", 0.5, 0.02, 3),
                  vaccinate_pct=num("vaccinate", 0, 0, 50), lockdown=flag("lockdown"),
                  lock_start=num("lock_start", 3, 0, 30), lock_days=num("lock_days", 10, 1, 60),
-                 lock_cut_pct=num("lock_cut", 50, 0, 100), days=num("days", 20, 5, 120))
+                 lock_cut_pct=num("lock_cut", 50, 0, 100), days=num("days", M.SIR_DAYS, 5, 120))
 
 
 @memo(maxsize=4)
@@ -62,7 +63,7 @@ def sir_fit():
 @endpoint
 def rumour():
     return M.rumour(beta=num("beta", 0.3, 0.01, 2), gamma=num("gamma", 0.1, 0.01, 1),
-                    alpha=num("alpha", 0, 0, 0.5), newcomers=num("newcomers", 0, 0, 50), days=num("days", 100, 10, 365))
+                    alpha=num("alpha", 0, 0, 0.5), newcomers=num("newcomers", 0, 0, 50), days=num("days", M.RUMOUR_DAYS, 10, 365))
 
 
 @bp.get("/decay")
@@ -93,3 +94,21 @@ def walk2d():
     steps, walkers = num("steps", 500, 10, 5000, integer=True), num("walkers", 250, 10, 5000, integer=True)
     _budget(steps * walkers, "steps x walkers")
     return M.walk2d(walkers=walkers, steps=steps, seed=num("seed", 11, 0, 2**31 - 1, integer=True))
+
+
+@section("spread")
+def catalog():
+    """Dataset facts and fixed model constants the Spread views describe before (or
+    independently of) a request: the 1978 outbreak, its best-fit parameters, solver steps."""
+    fit, _ = _fit()
+    return clean({
+        "flu": dict(M.FLU, best_fit={"beta": round(float(fit["beta"]), 2), "alpha": round(float(fit["alpha"]), 2)}),
+        "dosing": {"volume_ml": M.DOSING_VOLUME_ML, "volume_l": M.DOSING_VOLUME_ML / 1000,
+                   "step_h": M.DOSING_H, "hours": M.DOSING_HOURS},
+        "sir": {"step_day": M.SIR_H, "days": M.SIR_DAYS},
+        "rumour": {"population": M.RUMOUR_N0, "initial_spreaders": M.RUMOUR_S0, "step_day": M.RUMOUR_H, "days": M.RUMOUR_DAYS},
+        "decay": {"n0": M.DECAY_N0, "t_max": M.DECAY_T_MAX},
+        "coins": {"sequences": M.COIN_SEQUENCES, "p_heads": M.COIN_P},
+        "walk": {"paths_shown": M.WALK_PATHS_SHOWN},
+        "walk2d": {"msd_slope": M.WALK2D_MSD_SLOPE, "paths_shown": M.WALK2D_PATHS_SHOWN},
+    })

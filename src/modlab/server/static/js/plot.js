@@ -28,6 +28,7 @@ export function frame(host, o) {
   const w = Math.max(260, host.clientWidth), h = o.h || 300;
   const M = Object.assign({ l: 52, r: 16, t: o.yl ? 30 : 12, b: o.xl ? 40 : 26 }, o.m || {});
   const svg = E('svg', { class: 'plot', width: w, height: h, viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': o.label || '' }, host);
+  svg.dataset.base = h - M.b;
   const tx = o.xlog ? Math.log10 : v => v, ty = o.ylog ? Math.log10 : v => v;
   const X = v => M.l + (tx(v) - tx(o.x[0])) / (tx(o.x[1]) - tx(o.x[0])) * (w - M.l - M.r);
   const Y = v => h - M.b - (ty(v) - ty(o.y[0])) / (ty(o.y[1]) - ty(o.y[0])) * (h - M.t - M.b);
@@ -56,6 +57,34 @@ export function frame(host, o) {
     bars(edges, counts, cls, base) { const b0 = base ?? o.y[0]; counts.forEach((c, i) => { if (!c) return; const x0 = X(edges[i]) + 1, x1 = X(edges[i + 1]) - 1; E('rect', { x: x0, y: Y(c), width: Math.max(1, x1 - x0), height: Math.max(0, Y(b0) - Y(c)), rx: 1.5, class: cls }, body); }); },
     text(x, y, s, attrs = {}) { const t = E('text', Object.assign({ x, y, class: 'dlabel' }, attrs), over); t.textContent = s; return t; },
   };
+}
+
+/* decorate(host, {animate}): after a chart is drawn, give its main series a glow fill that
+   fades to the axis and, on the first draw, animate the lines in. Only charts with one or two
+   main lines get fills, so busy charts stay readable. Purely visual. */
+const SERIES = ['s1', 's2', 's3', 's4'];
+export function decorate(host, { animate = false } = {}) {
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  host.querySelectorAll('svg.plot').forEach(svg => {
+    const base = +svg.dataset.base;
+    const main = [...svg.querySelectorAll('path.ln')].filter(p => !/\b(thin|dashed|sn)\b/.test(p.getAttribute('class')) && SERIES.some(c => p.classList.contains(c)));
+    if (main.length && main.length <= 2 && Number.isFinite(base)) {
+      const defs = svg.querySelector('defs') || E('defs', {}, svg);
+      main.forEach((p, i) => {
+        const d = p.getAttribute('d') || '';
+        if ((d.match(/M/g) || []).length !== 1) return;
+        const pts = d.slice(1).split('L').map(xy => xy.split(',').map(Number));
+        if (pts.length < 3) return;
+        const col = SERIES.find(c => p.classList.contains(c)), id = `ga-${col}-${Math.random().toString(36).slice(2, 8)}`;
+        const g = E('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+        E('stop', { offset: 0, style: `stop-color:var(--${col});stop-opacity:${i ? 0.16 : 0.26}` }, g);
+        E('stop', { offset: 1, style: `stop-color:var(--${col});stop-opacity:0` }, g);
+        const area = E('path', { d: `${d}L${pts[pts.length - 1][0]},${base}L${pts[0][0]},${base}Z`, fill: `url(#${id})`, class: 'glow-area' + (animate && !calm ? ' draw' : '') }, p.parentNode);
+        p.parentNode.insertBefore(area, p.parentNode.firstChild);
+      });
+    }
+    if (animate && !calm) svg.querySelectorAll('path.ln').forEach(p => { if (!p.classList.contains('dashed')) { p.setAttribute('pathLength', 1); p.classList.add('draw'); } });
+  });
 }
 
 /* hover(host, P, fn): fn(px, py) -> {html, cross (px), pts: [[px, py, cls]]} or null */

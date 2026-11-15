@@ -15,6 +15,18 @@ from ..server.cache import memo
 TICKERS = list(D.TICKERS)                     # SPY AAPL MSFT NVDA JPM XOM
 TEST_YEARS = list(M.TEST_YEARS)               # 2015 .. 2026
 YEAR_MIN, YEAR_MAX = 2005, 2026
+# The model registry: every model id the markets endpoints accept, with the name the
+# interface shows (and a short form for tight controls).
+MODEL_NAMES = {
+    "zero": ("Zero (random walk)", "Zero"), "hist_mean": ("Historical mean", "Mean"),
+    "arima": ("ARIMA", "ARIMA"), "ridge": ("Ridge", "Ridge"), "gbm": ("Gradient boosting", "GBM"),
+    "lstm": ("LSTM", "LSTM"), "gru": ("GRU", "GRU"),
+    "hist21": ("21-day history", "21-day"), "ewma": ("EWMA", "EWMA"), "garch": ("GARCH(1,1)", "GARCH"),
+    "har": ("HAR-RV", "HAR"), "har_x": ("HAR-RV + VIX", "HAR + VIX"), "buy_hold": ("Buy and hold", "Buy and hold"),
+}
+# What each ticker is: SPY is an index fund, the rest are single stocks.
+TICKER_INFO = {"SPY": ("S&P 500", "fund"), "AAPL": ("Apple", "stock"), "MSFT": ("Microsoft", "stock"),
+               "NVDA": ("Nvidia", "stock"), "JPM": ("JPMorgan", "stock"), "XOM": ("Exxon", "stock")}
 TORCH_MISSING = "PyTorch is not installed. Install it with: pip install -e '.[rnn]'"
 
 
@@ -93,5 +105,9 @@ def weekly_equity(pnl: dict[str, pd.Series]) -> dict:
 
 
 def kupiec_dict(exceed: np.ndarray, alpha: float) -> dict:
+    """Kupiec's unconditional-coverage test, plus its verdict at the 5% level:
+    "too_often" / "too_rarely" when the breach rate is rejected, else "ok"."""
     k = E.kupiec(exceed, alpha)
-    return {"n": k["n"], "exceed": k["exceed"], "rate": k["rate"], "kupiec_lr": k["lr"], "kupiec_p": k["p"]}
+    verdict = "ok" if not k["p"] < 0.05 else ("too_often" if k["rate"] > alpha else "too_rarely")
+    return {"n": k["n"], "exceed": k["exceed"], "rate": k["rate"], "kupiec_lr": k["lr"], "kupiec_p": k["p"],
+            "verdict": verdict}

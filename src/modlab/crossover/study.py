@@ -23,6 +23,12 @@ from .. import DATA
 from ..core import montecarlo, pca
 
 TICKERS = ["SPY", "AAPL", "MSFT", "NVDA", "JPM", "XOM"]
+# Crisis windows the VIX model is scored on (and the chart can zoom to): [start, end).
+VIX_WINDOWS = {"2008": ("2007-06-01", "2010-01-01"), "2020": ("2019-10-01", "2021-01-01"),
+               "2025": ("2024-10-01", "2026-12-31")}
+# Names for the best-known completed crashes, keyed by ticker and peak date.
+NAMED_CRASHES = {("SPY", "2007-10-09"): "SPY 2008", ("SPY", "2020-02-19"): "SPY 2020",
+                 ("SPY", "2000-03-24"): "SPY dot-com"}
 
 
 @functools.lru_cache(maxsize=16)
@@ -100,24 +106,43 @@ def random_walk(ticker: str = "SPY", sims: int = 2000, perms: int = 200, seed: i
     mdd_n, mdd_b = np.concatenate(mdd_n), np.concatenate(mdd_b)
     bins = np.linspace(0, 1, 51)
 
+    # The four tests of the walk, each with its verdict (fail = the data rejects the walk).
+    beyond4, expected4 = int((np.abs(z) > 4).sum()), n * p4
+    r10 = next(r for r in robust if r["k"] == 10)
+    acf_abs, band = acf(np.abs(x), 100), 1.96 / np.sqrt(n)
+    share_worse = float((mdd_n >= real).mean())
+    tests = [
+        {"id": "normal", "fail": bool(beyond4 > 3 * max(1.0, expected4)), "beyond4": beyond4, "expected4": expected4},
+        {"id": "reversion", "fail": bool(abs(r10["z"]) > 1.96), "k": 10, "vr": r10["vr"], "z": r10["z"]},
+        {"id": "memory", "fail": bool(acf_abs[0] > 2 * band), "acf_abs_1": float(acf_abs[0]), "band": band},
+        {"id": "crash", "fail": bool(share_worse < 0.05), "share_worse": share_worse},
+    ]
+    # Expected normal counts: per histogram bin, and as a smooth curve for drawing.
+    bw = edges[1] - edges[0]
+    zc = np.round(np.arange(edges[0], edges[-1] + 1e-9, 0.05), 4)
+    dens = stats.norm.cdf(zc + bw / 2) - stats.norm.cdf(zc - bw / 2)
+    per_bin = np.diff(stats.norm.cdf(edges))
     return {
         "ticker": ticker, "n": n, "mu": mu, "sigma": sd,
+        "tests": tests, "decades_weaker": bool(abs(decades[-1]["z10"]) < abs(decades[0]["z10"])),
         "start": str(r.index[0].date()), "end": str(r.index[-1].date()),
         "variance_ratio": [{"k": k, "vr": v, "lo": a, "hi": b} for k, v, a, b in zip(ks, vr, lo, hi)],
         "robust": robust, "decades": decades,
-        "acf_r": acf(x, 100), "acf_abs": acf(np.abs(x), 100), "acf_band": 1.96 / np.sqrt(n),
+        "acf_r": acf(x, 100), "acf_abs": acf_abs, "acf_band": band,
         "tails": {
-            "beyond4": int((np.abs(z) > 4).sum()), "expected4": n * p4,
+            "beyond4": beyond4, "expected4": expected4,
             "beyond4_scaled": int((np.abs(zs) > 4).sum()), "expected4_scaled": len(zs) * p4,
             "kurtosis": float(stats.kurtosis(z, fisher=False)), "kurtosis_scaled": float(stats.kurtosis(zs, fisher=False)),
             "worst_day": str(r.idxmin().date()), "worst_return": float(np.expm1(x.min())), "worst_z": float(z.min()),
         },
         "hist": {"edges": edges, "raw": np.histogram(z, edges)[0], "scaled": np.histogram(zs, edges)[0],
-                 "n_raw": len(z), "n_scaled": len(zs)},
+                 "n_raw": len(z), "n_scaled": len(zs),
+                 "expected_raw": len(z) * per_bin, "expected_scaled": len(zs) * per_bin,
+                 "normal_curve": {"z": zc, "raw": len(z) * dens, "scaled": len(zs) * dens}},
         "kurtosis_by_horizon": kurt_h,
         "drawdown": {
             "real": real, "sims": sims,
-            "share_worse_normal": float((mdd_n >= real).mean()), "share_worse_bootstrap": float((mdd_b >= real).mean()),
+            "share_worse_normal": share_worse, "share_worse_bootstrap": float((mdd_b >= real).mean()),
             "median_normal": float(np.median(mdd_n)), "median_bootstrap": float(np.median(mdd_b)),
             "bins": bins, "hist_normal": np.histogram(mdd_n, bins)[0], "hist_bootstrap": np.histogram(mdd_b, bins)[0],
         },
@@ -131,7 +156,7 @@ def walk_paths(ticker: str = "SPY", n_paths: int = 20, seed: int | None = None) 
     paths = montecarlo.walks(montecarlo.rng(seed), n_paths, len(steps), float(steps.mean()), float(steps.std(ddof=1)))
     ends = np.exp(paths[:, -1])
     return {"ticker": ticker, "dates": [d.strftime("%Y-%m-%d") for d in wk.index], "real": wk.to_numpy() - wk.iloc[0],
-            "walks": paths, "weekly_mu": float(steps.mean()), "weekly_sigma": float(steps.std(ddof=1)),
+            "walks": paths, "walk_lo": paths.min(axis=0), "walk_hi": paths.max(axis=0), "weekly_mu": float(steps.mean()), "weekly_sigma": float(steps.std(ddof=1)),
             "real_multiple": float(np.exp(wk.iloc[-1] - wk.iloc[0])), "walk_multiples": np.sort(ends)}
 
 
@@ -175,7 +200,7 @@ def vix_events(ratio: float = 1.6, gap: int = 63, horizon: int = 60) -> dict:
         frac = (seg - b) / (seg[0] - b)                   # share of the "dose" still in the blood
         curves.append(frac)
         below = np.nonzero(frac <= 0.5)[0]
-        events.append({"date": str(p.date()), "peak": float(seg[0]), "base": b,
+        events.append({"date": str(p.date()), "peak": float(seg[0]), "base": b, "ratio": float(seg[0]) / b,
                        "days_to_half": int(below[0]) if len(below) else None})
     C = np.array(curves)
     h = np.arange(horizon + 1)
@@ -192,12 +217,14 @@ def vix_events(ratio: float = 1.6, gap: int = 63, horizon: int = 60) -> dict:
     r2 = lambda f: 1 - float(((med - f) ** 2).sum()) / sst
     vv = v.to_numpy()
     phi, c = np.polyfit(vv[:-1], vv[1:], 1)
+    r2_one, r2_two = r2(one(h, k1)), r2(two(h, a2, kf, ks))
     return {
         "params": {"ratio": ratio, "gap": gap, "horizon": horizon},
+        "n_events": len(events), "two_better": bool(r2_two > r2_one + 0.1),   # two compartments fit clearly better
         "events": events, "h": h, "median": med, "q25": q25, "q75": q75,
-        "one": {"k": k1, "half_life": np.log(2) / k1, "r2": r2(one(h, k1)), "curve": one(h, k1)},
-        "two": {"a": a2, "k_fast": kf, "k_slow": ks, "hl_fast": np.log(2) / kf,
-                "hl_slow": np.log(2) / ks if ks > 0 else None, "r2": r2(two(h, a2, kf, ks)), "curve": two(h, a2, kf, ks)},
+        "one": {"k": k1, "half_life": np.log(2) / k1, "r2": r2_one, "curve": one(h, k1)},
+        "two": {"a": a2, "a_slow": 1 - a2, "k_fast": kf, "k_slow": ks, "hl_fast": np.log(2) / kf,
+                "hl_slow": np.log(2) / ks if ks > 0 else None, "r2": r2_two, "curve": two(h, a2, kf, ks)},
         "ar1": {"phi": phi, "half_life": np.log(2) / -np.log(phi), "base": c / (1 - phi)},
     }
 
@@ -246,15 +273,14 @@ def vix_dose_model(half_life: float | None = 12.5, threshold: float = 3.4, compa
             params = [float(p) for p in res.x]
     m = model(params)
     out = {"compartments": compartments, "threshold": threshold, "baseline": base,
-           "n_doses": int((doses > 0).sum()), "n_days": len(x),
+           "n_doses": int((doses > 0).sum()), "n_days": len(x), "dose_share": float((doses > 0).mean()),
            "r2": float(1 - ((x - m) ** 2).sum() / sst), "fitted": fit}
     if compartments == 1:
         out["half_life"] = params[0]
     else:
         out.update(a=params[0], hl_fast=params[1], hl_slow=params[2])
     out["windows"] = {}
-    for name, (lo, hi) in {"2008": ("2007-06-01", "2010-01-01"), "2020": ("2019-10-01", "2021-01-01"),
-                           "2025": ("2024-10-01", "2026-12-31")}.items():
+    for name, (lo, hi) in VIX_WINDOWS.items():
         w = (v.index >= lo) & (v.index < hi)
         out["windows"][name] = float(1 - ((x[w] - m[w]) ** 2).sum() / ((x[w] - x[w].mean()) ** 2).sum())
     out["_series"] = (v.index, x, m)
@@ -294,6 +320,7 @@ def crash_shapes(spy_depth: float = 0.10, stock_depth: float = 0.20, landmarks: 
             y = (seg / seg[0] - 1) / d                 # remove level and depth: peak 0, trough -1
             X.append(np.interp(s, np.linspace(0, 1, len(seg)), y))
             rows.append({"ticker": tk, "peak": str(t0.date()), "trough": str(tm.date()), "recovered": str(t1.date()),
+                         "label": NAMED_CRASHES.get((tk, str(t0.date()))),
                          "depth": float(d), "days": int(len(seg) - 1),
                          "trough_at": float((p.index.get_loc(tm) - p.index.get_loc(t0)) / (len(seg) - 1))})
     if len(X) < 6:
@@ -310,14 +337,24 @@ def crash_shapes(spy_depth: float = 0.10, stock_depth: float = 0.20, landmarks: 
     for r, sc, x in zip(rows, scores, X):
         r["scores"], r["curve"] = sc[:4], x
     depth = np.array([r["depth"] for r in rows])
+    spy = [i for i, r in enumerate(rows) if r["ticker"] == "SPY"]
+    c1 = float(np.corrcoef(scores[:, 0], depth)[0, 1])
+    q25, q75 = np.quantile(X, [0.25, 0.75], axis=0, method="lower")
     return {
+        "counts": {"total": len(rows), "spy": len(spy), "stocks": len(rows) - len(spy)},
+        "main_spy": max(spy, key=lambda i: rows[i]["depth"]) if spy else None,     # the deepest SPY crash
+        # mean +- 2 sd along each of the first three modes
+        "mode_bands": [{"plus": model.mean + 2 * model.sd[k] * model.modes[k],
+                        "minus": model.mean - 2 * model.sd[k] * model.modes[k]} for k in range(min(3, len(model.sd)))],
+        "q25": q25, "q75": q75,                         # middle 50% of the crashes at each landmark
+        "depth_lean": "U" if c1 < -0.2 else "V" if c1 > 0.2 else None,   # do deeper crashes lean one way?
         "params": {"spy_depth": spy_depth, "stock_depth": stock_depth, "landmarks": landmarks, "min_days": min_days},
         "s": s, "mean": model.mean, "modes": model.modes[:4], "sd": model.sd[:4],
         "variance": model.var_ratio[:8], "cumulative": np.cumsum(model.var_ratio)[:8],
         "rebuild_rmse": [float(np.sqrt(((X - model.rebuild(X, k)) ** 2).mean())) for k in range(0, len(model.sd) + 1)],
         "episodes": rows,
         "correlations": {
-            "mode1_depth": float(np.corrcoef(scores[:, 0], depth)[0, 1]),
+            "mode1_depth": c1,
             "mode1_trough_at": float(np.corrcoef(scores[:, 0], trough_at)[0, 1]),
             "mode2_trough_at": float(np.corrcoef(scores[:, 1], trough_at)[0, 1]),
         },

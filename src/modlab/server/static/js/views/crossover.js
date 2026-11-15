@@ -1,5 +1,8 @@
 // Pillar 4 · Crossover: market data through the spread and shape toolkits, as workbench specs.
+// Tickers, data ranges and the VIX windows come from the server (catalog.crossover); every test
+// verdict, count, share and band shown here comes from the endpoint responses.
 import { call, fdate, fmt, fmtMs, int, mon, pct } from '../api.js';
+import { catalog } from '../catalog.js';
 import { extent, frame, hover, nearest, zip } from '../plot.js';
 import { seg } from '../ui/dom.js';
 import { S, edge, node, spark, text, widthFor } from '../ui/illustrate.js';
@@ -11,7 +14,7 @@ const yearOf = s => +s.slice(0, 4) + (+s.slice(5, 7) - 1) / 12 + (+s.slice(8, 10
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const signed = (v, d = 1) => (v > 0 ? '+' : '') + fmt(v, d);
 const every = (arr, n) => { const k = Math.max(1, Math.ceil(arr.length / n)); return arr.filter((_, i) => i % k === 0 || i === arr.length - 1); };
-const normCdf = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), q = 0.3989423 * Math.exp(-z * z / 2) * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
+const CAT = catalog.crossover;
 
 /* Log-scale ticks for growth of $1: 1-2-5 steps, thinned to powers of ten on long ranges. */
 function growthTicks(lo, hi) {
@@ -25,25 +28,22 @@ function growthTicks(lo, hi) {
 const mult = v => { const x = Math.exp(v); return x >= 1e6 ? fmt(x / 1e6, 0) + 'M×' : x >= 1e4 ? fmt(x / 1e3, 0) + 'k×' : +x.toPrecision(2) + '×'; };
 
 /* ================================================================ A: random walk */
-const TICKERS = ['SPY', 'AAPL', 'MSFT', 'NVDA', 'JPM', 'XOM'];
-
-/* The four tests, scored the same way for the tiles, the illustration and the insights. */
-function tests(d) {
-  const T = d.tails, r10 = d.robust.find(r => r.k === 10), A = d.acf_abs, M = d.drawdown;
-  return [
-    { name: 'Normal steps', fail: T.beyond4 > 3 * Math.max(1, T.expected4), sub: `${T.beyond4} days past 4σ vs ${fmt(T.expected4, 1)}` },
-    { name: 'No mean reversion', fail: Math.abs(r10.z) > 1.96, sub: `VR(10) ${fmt(r10.vr, 2)}, robust z ${fmt(r10.z, 1)}` },
-    { name: 'No memory', fail: A[0] > 2 * d.acf_band, sub: `|r| memory ${fmt(A[0], 2)} at lag 1` },
-    { name: 'Crash size', fail: M.share_worse_normal < 0.05, sub: `${pct(M.share_worse_normal, 0)} of walks fall further` },
-  ];
-}
+/* The four tests: verdicts and values from the server (d.tests), wording here. */
+const TEST_COPY = {
+  normal: { name: 'Normal steps', idle: 'days beyond 4σ vs normal', sub: t => `${t.beyond4} days past 4σ vs ${fmt(t.expected4, 1)}` },
+  reversion: { name: 'No mean reversion', idle: 'variance ratio = 1', sub: t => `VR(${t.k}) ${fmt(t.vr, 2)}, robust z ${fmt(t.z, 1)}` },
+  memory: { name: 'No memory', idle: 'autocorrelation = 0', sub: t => `|r| memory ${fmt(t.acf_abs_1, 2)} at lag 1` },
+  crash: { name: 'Crash size', idle: 'drawdown vs simulations', sub: t => `${pct(t.share_worse, 0)} of walks fall further` },
+};
+const tests = d => d.tests.map(t => ({ ...t, name: TEST_COPY[t.id]?.name ?? t.id, sub: TEST_COPY[t.id]?.sub(t) ?? '' }));
+const test = (d, id) => d.tests.find(t => t.id === id);
 
 const randomWalk = {
   id: 'random-walk', group: 'crossover', nav: 'Is it a random walk?', tag: 'Labs 9–10', title: 'Is a stock the random walk from Lab 10?',
   question: "Give Lab 10's walker the stock's own drift and volatility. By eye the paths look alike. Which of four tests tell them apart?",
   params: [
-    { k: 'ticker', type: 'seg', label: 'Stock', value: 'SPY', options: TICKERS.map(t => [t, t]), group: 'Data',
-      help: 'Daily total-return prices from 1993 to 2026. SPY is the S&P 500 index fund.' },
+    { k: 'ticker', type: 'seg', label: 'Stock', value: CAT.tickers[0].id, options: CAT.tickers.map(t => [t.id, t.id]), group: 'Data',
+      help: `Daily total-return prices from ${CAT.first_year} to ${CAT.last_year}. SPY is the S&P 500 index fund.` },
     { k: 'n', label: 'Random walks shown', min: 5, max: 60, step: 1, value: 20, unit: 'paths', group: 'Data',
       help: "Each walk takes independent normal weekly steps with the stock's mean and standard deviation." },
     { k: 'sims', label: 'Monte Carlo histories', min: 200, max: 5000, step: 100, value: 2000, group: 'Tests',
@@ -69,13 +69,13 @@ const randomWalk = {
     { label: 'New Monte Carlo seed', icon: 'dice', run(ctx) { ctx.state.seed = Math.floor(Math.random() * 1e9); return ctx.now(); } },
   ],
   kpis: d => {
-    const t = tests(d), T = d.tails, r10 = d.robust.find(r => r.k === 10), A = d.acf_abs, M = d.drawdown;
-    const tone = x => x.fail ? 'bad' : 'good';
+    const T = d.tails, r = test(d, 'reversion'), A = d.acf_abs, M = d.drawdown;
+    const tone = id => test(d, id).fail ? 'bad' : 'good';
     return [
-      { label: 'Days beyond 4σ', value: int(T.beyond4), unit: 'days', note: `a normal walk expects ${fmt(T.expected4, 2)}`, tone: tone(t[0]) },
-      { label: 'Variance ratio at 10 days', value: fmt(r10.vr, 2), note: `robust z ${fmt(r10.z, 1)}; a walk gives 1`, tone: tone(t[1]) },
-      { label: 'Memory in |r| at lag 1', value: fmt(A[0], 2), note: `${fmt(A[99], 2)} at lag 100; band ±${fmt(d.acf_band, 2)}`, tone: tone(t[2]) },
-      { label: 'Maximum drawdown', value: pct(M.real, 0), note: `${pct(M.share_worse_normal, 1)} of normal walks fall further`, tone: tone(t[3]) },
+      { label: 'Days beyond 4σ', value: int(T.beyond4), unit: 'days', note: `a normal walk expects ${fmt(T.expected4, 2)}`, tone: tone('normal') },
+      { label: `Variance ratio at ${r.k} days`, value: fmt(r.vr, 2), note: `robust z ${fmt(r.z, 1)}; a walk gives 1`, tone: tone('reversion') },
+      { label: 'Memory in |r| at lag 1', value: fmt(A[0], 2), note: `${fmt(A[A.length - 1], 2)} at lag ${A.length}; band ±${fmt(d.acf_band, 2)}`, tone: tone('memory') },
+      { label: 'Maximum drawdown', value: pct(M.real, 0), note: `${pct(M.share_worse_normal, 1)} of normal walks fall further`, tone: tone('crash') },
     ];
   },
   illustration: {
@@ -99,9 +99,7 @@ const randomWalk = {
         text(svg, 152, 198, 'each week: a coin flip of ±σ around the drift', 'n-sub');
       }
       edge(svg, [300, 105], [328, 105], { width: 2 });
-      const t = d ? tests(d) : [
-        { name: 'Normal steps', sub: 'days beyond 4σ vs normal' }, { name: 'No mean reversion', sub: 'variance ratio = 1' },
-        { name: 'No memory', sub: 'autocorrelation = 0' }, { name: 'Crash size', sub: 'drawdown vs simulations' }];
+      const t = d ? tests(d) : Object.values(TEST_COPY).map(c => ({ name: c.name, sub: c.idle }));
       t.forEach((c, i) => {
         const n = node(svg, { x: 334, y: 8 + i * 52, w: 258, h: 46, title: c.name, sub: c.sub, hot: d ? c.fail : false });
         const mark = !d ? '·' : c.fail ? '✗' : '✓';
@@ -120,8 +118,8 @@ const randomWalk = {
         P0.walks.forEach(w => P.line(zip(yrs, w), 'sn thin').setAttribute('opacity', '.45'));
         P.hline(0); P.line(zip(yrs, P0.real), 's1');
         hover(host, P, px => {
-          const i = nearest(yrs, P.xInv(px)), col = P0.walks.map(w => w[i]);
-          return { cross: P.X(yrs[i]), pts: [[P.X(yrs[i]), P.Y(P0.real[i]), 'f1']], html: tip(mon(P0.dates[i]), [[s.ticker, '$' + fmt(Math.exp(P0.real[i]), 2)], ['Walks', `$${fmt(Math.exp(Math.min(...col)), 2)} to $${fmt(Math.exp(Math.max(...col)), 2)}`]]) };
+          const i = nearest(yrs, P.xInv(px));
+          return { cross: P.X(yrs[i]), pts: [[P.X(yrs[i]), P.Y(P0.real[i]), 'f1']], html: tip(mon(P0.dates[i]), [[s.ticker, '$' + fmt(Math.exp(P0.real[i]), 2)], ['Walks', `$${fmt(Math.exp(P0.walk_lo[i]), 2)} to $${fmt(Math.exp(P0.walk_hi[i]), 2)}`]]) };
         });
       } },
     { id: 'tails', title: 'Fat tails', height: 300,
@@ -133,13 +131,13 @@ const randomWalk = {
         return `${raw ? T.beyond4 : T.beyond4_scaled} days beyond 4σ where a normal walk expects ${fmt(raw ? T.expected4 : T.expected4_scaled, 2)}. Kurtosis ${fmt(raw ? T.kurtosis : T.kurtosis_scaled, 1)} (normal 3). Worst day ${fdate(T.worst_day)}, ${pct(T.worst_return)}.`;
       },
       draw(host, d, s) {
-        const H = d.hist, raw = s.tails === 'raw', counts = raw ? H.raw : H.scaled, n = raw ? H.n_raw : H.n_scaled, ed = H.edges, bw = ed[1] - ed[0];
+        const H = d.hist, raw = s.tails === 'raw', counts = raw ? H.raw : H.scaled, expect = raw ? H.expected_raw : H.expected_scaled, ed = H.edges, bw = ed[1] - ed[0];
+        const NC = H.normal_curve, curve = raw ? NC.raw : NC.scaled;
         const P = frame(host, { h: 300, x: [-8, 8], y: [0.3, 3000], ylog: true, yt: [1, 10, 100, 1000], yf: v => v >= 1000 ? v / 1000 + 'k' : v, xt: [-8, -6, -4, -2, 0, 2, 4, 6, 8], xf: v => v + 'σ', xl: 'Daily move in standard deviations', yl: 'Days (log scale)' });
         P.bars(ed, counts, 'f1', 0.3);
-        const exp = []; for (let z = -8; z <= 8.001; z += 0.05) exp.push([z, Math.max(n * (normCdf(z + bw / 2) - normCdf(z - bw / 2)), 0.3)]);
-        P.line(exp, 's2'); P.vline(-4); P.vline(4);
+        P.line(NC.z.map((z, i) => [z, Math.max(curve[i], 0.3)]), 's2'); P.vline(-4); P.vline(4);      // floored at the axis minimum
         hover(host, P, px => {
-          const i = clamp(Math.floor((P.xInv(px) - ed[0]) / bw), 0, ed.length - 2), e = n * (normCdf(ed[i + 1]) - normCdf(ed[i]));
+          const i = clamp(Math.floor((P.xInv(px) - ed[0]) / bw), 0, ed.length - 2), e = expect[i];
           return { html: tip(`${fmt(ed[i])}σ to ${fmt(ed[i + 1])}σ`, [['Days', counts[i]], ['Normal expects', e < 0.01 ? e.toExponential(1) : fmt(e, 2)]]) };
         });
       } },
@@ -147,8 +145,8 @@ const randomWalk = {
       sub: 'Variance of k-day returns over k times the daily variance. A random walk gives 1. Below 1, moves partly reverse.',
       legend: [['s1', 'line', 'Real'], ['neutral', 'box', 'Shuffled days, 95%']],
       caption: d => {
-        const r10 = d.robust.find(r => r.k === 10);
-        return `Lo–MacKinlay robust z: ${d.robust.map(r => `${fmt(r.z, 1)} at ${r.k} d`).join(', ')}. After volatility scaling: ${fmt(r10.z_scaled, 1)} at 10 d. By decade at 10 d: ${d.decades.map(x => `${fmt(x.z10, 1)} (${x.span.replace('-', '–')})`).join(', ')}.`;
+        const k = test(d, 'reversion').k, rk = d.robust.find(r => r.k === k);
+        return `Lo–MacKinlay robust z: ${d.robust.map(r => `${fmt(r.z, 1)} at ${r.k} d`).join(', ')}. After volatility scaling: ${fmt(rk.z_scaled, 1)} at ${k} d. By decade at ${k} d: ${d.decades.map(x => `${fmt(x.z10, 1)} (${x.span.replace('-', '–')})`).join(', ')}.`;
       },
       draw(host, d) {
         const V = d.variance_ratio, rob = Object.fromEntries(d.robust.map(r => [r.k, r]));
@@ -198,11 +196,11 @@ const randomWalk = {
   ],
   insights: (d, s) => {
     const T = d.tails, K = d.kurtosis_by_horizon, A = d.acf_abs, M = d.drawdown, z = k => d.robust.find(r => r.k === k).z, dec = d.decades;
-    const weaker = Math.abs(dec[dec.length - 1].z10) < Math.abs(dec[0].z10);
+    const weaker = d.decades_weaker;
     return [
       `<b>The steps are not normal.</b> ${s.ticker} has ${T.beyond4} days beyond 4σ where a normal walk expects ${fmt(T.expected4, 2)}. Kurtosis falls from ${fmt(K[0].kurtosis, 1)} for daily returns to ${fmt(K[K.length - 1].kurtosis, 1)} for quarterly ones, on its way to the normal 3.`,
-      `<b>The steps are not independent.</b> Big days cluster: |r| autocorrelation is ${fmt(A[0], 2)} at lag 1 and still ${fmt(A[99], 2)} at lag 100. Variance ratios below 1 give a robust z of ${fmt(z(5), 1)} at 5 days and ${fmt(z(10), 1)} at 10 days${weaker ? `, weaker since ${dec[dec.length - 1].span.slice(0, 4)} (${fmt(dec[dec.length - 1].z10, 1)})` : ''}.`,
-      M.share_worse_normal >= 0.05
+      `<b>The steps are not independent.</b> Big days cluster: |r| autocorrelation is ${fmt(A[0], 2)} at lag 1 and still ${fmt(A[A.length - 1], 2)} at lag ${A.length}. Variance ratios below 1 give a robust z of ${fmt(z(5), 1)} at 5 days and ${fmt(z(10), 1)} at 10 days${weaker ? `, weaker since ${dec[dec.length - 1].span.slice(0, 4)} (${fmt(dec[dec.length - 1].z10, 1)})` : ''}.`,
+      !test(d, 'crash').fail
         ? `<b>Crash size alone does not reject the walk.</b> ${pct(M.share_worse_normal, 0)} of ${int(M.sims)} normal walks have a deeper drawdown than the real ${pct(M.real, 0)}.`
         : `<b>The walk understates crashes.</b> Only ${pct(M.share_worse_normal, 1)} of ${int(M.sims)} normal walks fall as far as the real ${pct(M.real, 0)}.`,
     ];
@@ -218,6 +216,7 @@ const doseQuery = s => Object.assign({ compartments: s.compartments, threshold: 
 const fitted = f => f.compartments === 1 ? { half_life: clamp(+f.half_life.toFixed(1), 1, 60) }
   : { a: clamp(+f.a.toFixed(2), 0.05, 0.95), hl_fast: clamp(+f.hl_fast.toFixed(1), 0.5, 20), hl_slow: clamp(Math.round(f.hl_slow), 5, 200) };
 const hlSlow = T => T.hl_slow == null ? '∞' : fmt(T.hl_slow, 0);
+const windows = (w, f, sep) => Object.entries(w).map(([k, v]) => f(k, v)).join(sep);   // the server's crisis windows, in order
 
 const dose = {
   id: 'dose', group: 'crossover', nav: 'Fear as a drug dose', tag: 'Lab 2', title: 'Does fear clear like a drug dose?',
@@ -237,7 +236,7 @@ const dose = {
     { k: 'hl_slow', label: 'Slow half-life', min: 5, max: 200, step: 1, value: 44, unit: 'days', group: 'Rebuild the VIX', show: s => s.compartments === '2' },
     { k: 'threshold', label: 'Dose threshold', min: 1, max: 8, step: 0.1, value: 3.4, unit: 'pts', group: 'Rebuild the VIX',
       help: 'Only daily VIX jumps larger than this count as doses.' },
-    { k: 'window', type: 'seg', label: 'Show', value: 'all', options: [['all', '1993–2026'], ['2008', '2008'], ['2020', '2020'], ['2025', '2025']], group: 'Rebuild the VIX',
+    { k: 'window', type: 'seg', label: 'Show', value: CAT.vix_windows[0].id, options: CAT.vix_windows.map(w => [w.id, w.label]), group: 'Rebuild the VIX',
       help: 'Zoom the chart on one crisis. The fit always uses every day.' },
   ],
   hidden: { fit: 0 },
@@ -268,7 +267,7 @@ const dose = {
       { label: 'Median spike half-life', value: fmt(E.one.half_life, 1), unit: 'days', note: `one compartment, R² ${fmt(E.one.r2)}`, tone: E.one.r2 > 0.9 ? 'good' : 'warn' },
       { label: 'Two compartments', value: `${pct(E.two.a, 0)} at ${fmt(E.two.hl_fast, 1)}`, unit: 'days', note: `the rest at ${hlSlow(E.two)} d, R² ${fmt(E.two.r2)}`, tone: E.two.r2 > 0.9 ? 'good' : 'warn' },
       { label: 'Whole-series AR(1) half-life', value: fmt(E.ar1.half_life, 0), unit: 'days', note: 'averages the fast and slow phases' },
-      { label: 'VIX rebuilt from doses', value: fmt(M.r2, 2), unit: 'R²', note: `2008 ${fmt(w['2008'])} · 2020 ${fmt(w['2020'])} · 2025 ${fmt(w['2025'])}`, tone: M.r2 > 0.7 ? 'good' : M.r2 > 0.4 ? 'warn' : 'bad' },
+      { label: 'VIX rebuilt from doses', value: fmt(M.r2, 2), unit: 'R²', note: windows(w, (k, v) => `${k} ${fmt(v)}`, ' · '), tone: M.r2 > 0.7 ? 'good' : M.r2 > 0.4 ? 'warn' : 'bad' },
     ];
   },
   illustration: {
@@ -276,7 +275,7 @@ const dose = {
     caption: 'Compartment values are least-squares fits to the median spike. Arrow widths follow the shares and clearance rates.',
     draw(svg, d, s) {
       const E = d?.events, two = s.compartments === '2';
-      const spike = node(svg, { x: 6, y: 72, w: 120, h: 72, title: 'VIX spike', value: `×${fmt(s.ratio, 2)}`, sub: E ? `${E.events.length} spikes` : 'prior median', hot: true });
+      const spike = node(svg, { x: 6, y: 72, w: 120, h: 72, title: 'VIX spike', value: `×${fmt(s.ratio, 2)}`, sub: E ? `${E.n_events} spikes` : 'prior median', hot: true });
       const base = node(svg, { x: 478, y: 72, w: 116, h: 72, title: 'Baseline', sub: '3-month median' });
       if (!two) {
         const O = E?.one;
@@ -284,11 +283,11 @@ const dose = {
         edge(svg, [spike.r + 4, spike.cy], [c.x - 6, c.cy], { label: 'dose', width: 5, flow: true });
         edge(svg, [c.r + 4, c.cy], [base.x - 6, base.cy], { label: O ? `k = ${fmt(O.k, 3)}/d` : 'k', width: widthFor(O ? O.k : 0.1, 0.4), flow: true });
       } else {
-        const T = E?.two, a = T ? T.a : s.a;
+        const T = E?.two, a = T ? T.a : s.a, b = T ? T.a_slow : 1 - s.a;      // before data: the slider's own split
         const fast = node(svg, { x: 226, y: 8, w: 150, h: 80, title: 'Fast', value: T ? `t½ ${fmt(T.hl_fast, 1)} d` : '…', sub: `${pct(a, 0)} of the dose`, fill: a, fillCls: 'fill3' });
-        const slow = node(svg, { x: 226, y: 130, w: 150, h: 80, title: 'Slow', value: T ? `t½ ${hlSlow(T)} d` : '…', sub: `${pct(1 - a, 0)} of the dose`, fill: 1 - a, fillCls: 'fill3' });
+        const slow = node(svg, { x: 226, y: 130, w: 150, h: 80, title: 'Slow', value: T ? `t½ ${hlSlow(T)} d` : '…', sub: `${pct(b, 0)} of the dose`, fill: b, fillCls: 'fill3' });
         edge(svg, [spike.r + 4, spike.cy - 10], [fast.x - 6, fast.cy], { label: pct(a, 0), labelAt: [160, 62], width: widthFor(a, 1), flow: true });
-        edge(svg, [spike.r + 4, spike.cy + 10], [slow.x - 6, slow.cy], { label: pct(1 - a, 0), labelAt: [160, 164], width: widthFor(1 - a, 1), flow: true });
+        edge(svg, [spike.r + 4, spike.cy + 10], [slow.x - 6, slow.cy], { label: pct(b, 0), labelAt: [160, 164], width: widthFor(b, 1), flow: true });
         edge(svg, [fast.r + 4, fast.cy], [base.x - 6, base.cy - 10], { label: T ? `${fmt(T.k_fast, 2)}/d` : 'k_f', labelAt: [438, 62], width: widthFor(T ? T.k_fast : 0.3, 0.4), flow: true });
         edge(svg, [slow.r + 4, slow.cy], [base.x - 6, base.cy + 10], { label: T ? `${fmt(T.k_slow, 3)}/d` : 'k_s', labelAt: [438, 164], width: widthFor(T ? T.k_slow : 0.02, 0.4), flow: true });
       }
@@ -298,7 +297,7 @@ const dose = {
   },
   charts: [
     { id: 'clear', title: 'Clearance of the median spike', height: 290,
-      sub: (d, s) => `${d.events.events.length} spikes at least ×${fmt(s.ratio, 2)} the prior 3-month median, ${s.gap}+ days apart. Each is scaled so the peak is 100% and the prior median 0%.`,
+      sub: (d, s) => `${d.events.n_events} spikes at least ×${fmt(s.ratio, 2)} the prior 3-month median, ${s.gap}+ days apart. Each is scaled so the peak is 100% and the prior median 0%.`,
       legend: [['s1', 'line', 'Median spike'], ['s1', 'box', 'Middle 50%'], ['s2', 'dash', 'One compartment'], ['s3', 'line', 'Two compartments']],
       draw(host, d) {
         const E = d.events, h = E.h, lo = Math.min(-0.2, ...E.q25);
@@ -314,7 +313,7 @@ const dose = {
     { id: 'vix', title: 'Rebuild the VIX from doses and clearance', height: 320,
       sub: (d, s) => `Only daily jumps above +${fmt(s.threshold, 1)} points count as doses (${int(d.model.n_doses)} of ${int(d.model.n_days)} days). Between doses the excess over the median ${fmt(d.model.baseline, 1)} decays${s.compartments === '1' ? ` with a ${fmt(s.half_life, 1)}-day half-life` : ' in two tanks'}.`,
       legend: [['s1', 'line', 'VIX'], ['s2', 'line', 'Doses + clearance'], ['neutral', 'dash', 'Median']],
-      caption: d => `R² on all days ${fmt(d.model.r2)}. 2008: ${fmt(d.model.windows['2008'])}, 2020: ${fmt(d.model.windows['2020'])}, 2025: ${fmt(d.model.windows['2025'])}.${d.model.fitted ? ' Clearance fitted by least squares.' : ' Press Fit clearance to let the server choose the clearance.'}`,
+      caption: d => `R² on all days ${fmt(d.model.r2)}. ${windows(d.model.windows, (k, v) => `${k}: ${fmt(v)}`, ', ')}.${d.model.fitted ? ' Clearance fitted by least squares.' : ' Press Fit clearance to let the server choose the clearance.'}`,
       draw(host, d, s) {
         const M = d.model, yrs = M.dates.map(yearOf), [, hi] = extent(M.vix, M.model);
         const P = frame(host, { h: 320, x: [yrs[0], yrs[yrs.length - 1]], y: [0, hi * 1.05], yl: 'VIX', xf: v => s.window === 'all' ? Math.round(v) : fmt(v, 1) });
@@ -322,20 +321,20 @@ const dose = {
         hover(host, P, px => { const i = nearest(yrs, P.xInv(px)); return { cross: P.X(yrs[i]), pts: [[P.X(yrs[i]), P.Y(M.vix[i]), 'f1'], [P.X(yrs[i]), P.Y(M.model[i]), 'f2']], html: tip(fdate(M.dates[i]), [['VIX', fmt(M.vix[i], 1)], ['Model', fmt(M.model[i], 1)]]) }; });
       } },
     { id: 'events', kind: 'html', title: 'Every spike',
-      sub: (d, s) => `Days until each spike had lost half its excess over the prior median. More than 60 means it never did in the window.`,
+      sub: (d, s) => `Days until each spike had lost half its excess over the prior median. More than ${d.events.params.horizon} means it never did in the window.`,
       draw(host, d) {
         const E = d.events, open = host.querySelector('details')?.open;
         host.style.minHeight = '0';
-        const rows = E.events.map(x => `<tr><td>${fdate(x.date)}</td><td class="num">${fmt(x.peak, 1)}</td><td class="num">${fmt(x.base, 1)}</td><td class="num">×${fmt(x.peak / x.base, 2)}</td><td class="num">${x.days_to_half ?? '> ' + E.params.horizon}</td></tr>`).join('');
-        host.innerHTML = `<details class="more"${open ? ' open' : ''}><summary>Show all ${E.events.length} spikes</summary><div class="tbl-wrap"><table><thead><tr><th>Peak</th><th class="num">VIX</th><th class="num">Prior median</th><th class="num">Ratio</th><th class="num">Days to half</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+        const rows = E.events.map(x => `<tr><td>${fdate(x.date)}</td><td class="num">${fmt(x.peak, 1)}</td><td class="num">${fmt(x.base, 1)}</td><td class="num">×${fmt(x.ratio, 2)}</td><td class="num">${x.days_to_half ?? '> ' + E.params.horizon}</td></tr>`).join('');
+        host.innerHTML = `<details class="more"${open ? ' open' : ''}><summary>Show all ${E.n_events} spikes</summary><div class="tbl-wrap"><table><thead><tr><th>Peak</th><th class="num">VIX</th><th class="num">Prior median</th><th class="num">Ratio</th><th class="num">Days to half</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
       } },
   ],
   insights: d => {
-    const E = d.events, M = d.model, better = E.two.r2 > E.one.r2 + 0.1;
+    const E = d.events, M = d.model, better = E.two_better;
     return [
       `The median spike loses half its excess in about <b>${fmt(E.one.half_life, 1)} trading days</b>. An AR(1) fitted to the whole series says ${fmt(E.ar1.half_life, 0)} days, because it averages a fast phase and a slow one.`,
       `<b>${better ? 'Two compartments fit much better.' : 'One compartment is nearly as good.'}</b> R² is ${fmt(E.one.r2)} with one and ${fmt(E.two.r2)} with two: ${pct(E.two.a, 0)} of the excess clears with a ${fmt(E.two.hl_fast, 1)}-day half-life and the rest over ${hlSlow(E.two)} days, like a drug's distribution and elimination phases.`,
-      `Doses on <b>${pct(M.n_doses / M.n_days, 1)}</b> of days plus clearance explain ${pct(M.r2, 0)} of the VIX's variation (2008: ${pct(M.windows['2008'], 0)}, 2025: ${pct(M.windows['2025'], 0)}). The rest is fear that builds slowly, without a single jump.`,
+      `Doses on <b>${pct(M.dose_share, 1)}</b> of days plus clearance explain ${pct(M.r2, 0)} of the VIX's variation (${windows(M.windows, (k, v) => `${k}: ${pct(v, 0)}`, ', ')}). The rest is fear that builds slowly, without a single jump.`,
     ];
   },
   maths: { eq: 'one compartment   E(t) = e^(−k t),   t½ = ln 2 / k\ntwo compartments  E(t) = a e^(−k_f t) + (1 − a) e^(−k_s t)\nVIX model         xₜ = m + eₜ,   eₜ = e^(−k) eₜ₋₁ + dₜ\n                  dₜ = Δxₜ if Δxₜ > threshold, else 0',
@@ -345,7 +344,7 @@ const dose = {
 
 /* ================================================================ C: crash shapes */
 const DEF = ['spy_depth', 'stock_depth', 'landmarks'];
-const spyMain = d => d.episodes.reduce((best, e, i) => e.ticker === 'SPY' && (best < 0 || e.depth > d.episodes[best].depth) ? i : best, -1);
+const LEAN = { U: 'U-shaped, with a long flat bottom', V: 'V-shaped' };
 const describe = e => `<b>${e.ticker}</b>: peak ${fdate(e.peak)}, bottom ${fdate(e.trough)}, recovered ${fdate(e.recovered)}. Depth ${pct(e.depth, 0)}, ${int(e.days)} trading days. Orange is this crash rebuilt from three modes.`;
 
 const crashShapes = {
@@ -378,12 +377,12 @@ const crashShapes = {
     return Object.assign(a, { sample: b, meta: merge(a, b) });
   },
   kpis: d => {
-    const n = d.episodes.length, spy = d.episodes.filter(e => e.ticker === 'SPY').length, C = d.correlations, v = d.variance;
+    const N = d.counts, C = d.correlations, v = d.variance;
     return [
-      { label: 'Completed crashes', value: int(n), note: `${spy} SPY · ${n - spy} single stocks` },
+      { label: 'Completed crashes', value: int(N.total), note: `${N.spy} SPY · ${N.stocks} single stocks` },
       { label: 'Three modes explain', value: pct(d.cumulative[2], 0), note: `mode 1 ${pct(v[0], 0)} · mode 2 ${pct(v[1], 0)} · mode 3 ${pct(v[2], 0)}`, tone: d.cumulative[2] > 0.8 ? 'good' : 'warn' },
       { label: 'Mode 2 vs trough timing', value: fmt(C.mode2_trough_at, 2), unit: 'r', note: 'where the bottom falls', tone: C.mode2_trough_at > 0.5 ? 'good' : null },
-      { label: 'Mode 1 vs depth', value: fmt(C.mode1_depth, 2), unit: 'r', note: C.mode1_depth < -0.2 ? 'deeper crashes lean U-shaped' : C.mode1_depth > 0.2 ? 'deeper crashes lean V-shaped' : 'depth barely sets the shape' },
+      { label: 'Mode 1 vs depth', value: fmt(C.mode1_depth, 2), unit: 'r', note: d.depth_lean ? `deeper crashes lean ${d.depth_lean}-shaped` : 'depth barely sets the shape' },
     ];
   },
   illustration: {
@@ -391,7 +390,7 @@ const crashShapes = {
     caption: 'Time is stretched to 0–1 and the fall scaled to 1, then sampled at evenly spaced landmarks. Right: the mean ± 2 sd along each mode.',
     draw(svg, d, s, ctx) {
       const W = 160, Y0 = 30, H = 140, xs = [8, 220, 432];
-      const sel = ctx?.extra?.sel, ep = d ? d.episodes[sel ?? spyMain(d)] : null;
+      const sel = ctx?.extra?.sel, ep = d ? d.episodes[sel ?? d.main_spy] ?? null : null;
       const L = Math.round(s.landmarks), sv = d ? d.s : Array.from({ length: L }, (_, i) => i / (L - 1));
       const curve = ep ? ep.curve : sv.map(t => -Math.pow(Math.sin(Math.PI * Math.pow(t, 0.75)), 1.4));
       xs.forEach(x => S('rect', { x, y: Y0, width: W, height: H, rx: 10, class: 'node' }, svg));
@@ -418,8 +417,8 @@ const crashShapes = {
       edge(svg, [xs[1] + W + 6, Y0 + H / 2], [xs[2] - 8, Y0 + H / 2], { width: 2, label: 'PCA', labelAt: [(xs[1] + W + xs[2]) / 2, Y0 + H / 2 - 10] });
       // 3. modes
       if (d) {
-        for (let k = 0; k < 3; k++) {
-          const y = Y0 + 8 + k * 44, plus = d.mean.map((m, i) => m + 2 * d.sd[k] * d.modes[k][i]), minus = d.mean.map((m, i) => m - 2 * d.sd[k] * d.modes[k][i]);
+        for (let k = 0; k < d.mode_bands.length; k++) {
+          const y = Y0 + 8 + k * 44, { plus, minus } = d.mode_bands[k];
           const yr = extent(plus, minus);
           spark(svg, d.s, minus, [xs[2] + 64, y + 4, W - 74, 30], 'st2', yr);
           spark(svg, d.s, plus, [xs[2] + 64, y + 4, W - 74, 30], 'st1', yr);
@@ -448,7 +447,7 @@ const crashShapes = {
         });
       } },
     { id: 'space', title: 'Crashes in shape space', height: 300,
-      sub: d => `${d.episodes.length} crashes by their first two mode scores. Click a dot to load its shape.`,
+      sub: d => `${d.counts.total} crashes by their first two mode scores. Click a dot to load its shape.`,
       legend: [['s1', 'dot', 'SPY'], ['s3', 'dot', 'Single stocks']],
       draw(host, d, s, ctx) {
         const sel = ctx.extra.sel, xs = d.episodes.map(e => e.scores[0]), ys = d.episodes.map(e => e.scores[1]);
@@ -458,11 +457,18 @@ const crashShapes = {
         const dots = d.episodes.map((e, i) => ({ i, e, x: P.X(e.scores[0]), y: P.Y(e.scores[1]) }));
         dots.slice().sort((a, b) => (a.e.ticker === 'SPY') - (b.e.ticker === 'SPY') || (a.i === sel) - (b.i === sel))
           .forEach(t => P.dot(t.e.scores[0], t.e.scores[1], (t.e.ticker === 'SPY' ? 'f1' : 'f3') + (t.i === sel ? ' sel' : ''), t.i === sel ? 7 : 5));
-        // Fixed offsets for the three big SPY crashes so their labels never collide; other deep ones get a generic label.
-        const LAB = { '2007-10-09': ['SPY 2008', 9, -8], '2020-02-19': ['SPY 2020', 9, 16], '2000-03-24': ['SPY dot-com', -9, -8, 'end'] };
-        dots.filter(t => t.e.ticker === 'SPY' && (LAB[t.e.peak] || t.e.depth >= 0.3)).forEach(t => {
-          const left = t.x > P.w * 0.7, [lab, dx, dy, anchor] = LAB[t.e.peak] || [`SPY ${t.e.peak.slice(0, 4)}`, left ? -9 : 9, -8, left ? 'end' : null];
-          P.text(t.x + dx, t.y + dy, lab, anchor ? { 'text-anchor': anchor } : {});
+        // Label the crashes the server names, and other deep SPY ones by year. Each label takes the
+        // first of four spots around its dot that does not overlap a label already placed.
+        const boxes = [], free = (x0, y0, x1, y1) => boxes.every(b => x1 < b[0] || x0 > b[2] || y1 < b[1] || y0 > b[3]);
+        dots.filter(t => t.e.label || (t.e.ticker === 'SPY' && t.e.depth >= 0.3)).sort((a, b) => b.e.depth - a.e.depth).forEach(t => {
+          const lab = t.e.label || `${t.e.ticker} ${t.e.peak.slice(0, 4)}`, w = lab.length * 6.2, side = t.x > P.w * 0.7 ? -1 : 1;
+          const spots = [[side, -8], [side, 16], [-side, -8], [-side, 16]].map(([sd, dy]) => {
+            const x = t.x + 9 * sd, y = t.y + dy, x0 = sd < 0 ? x - w : x;
+            return { x, y, sd, box: [x0, y - 11, x0 + w, y + 2] };
+          });
+          const at = spots.find(q => free(...q.box)) || spots[0];
+          boxes.push(at.box);
+          P.text(at.x, at.y, lab, at.sd < 0 ? { 'text-anchor': 'end' } : {});
         });
         const near = (px, py) => { let best = null, bd = 400; dots.forEach(t => { const dd = (t.x - px) ** 2 + (t.y - py) ** 2; if (dd < bd) { bd = dd; best = t; } }); return best; };
         hover(host, P, (px, py) => {
@@ -484,8 +490,8 @@ const crashShapes = {
         const sel = ctx.extra.sel; if (sel != null && d.episodes[sel]) P.line(zip(d.s, d.episodes[sel].curve), 's1');
         P.line(zip(d.s, d.mean), 'sn dashed');
         hover(host, P, px => {
-          const i = nearest(d.s, P.xInv(px)), col = d.episodes.map(e => e.curve[i]).sort((a, b) => a - b), q = f => col[Math.floor(f * (col.length - 1))];
-          return { cross: P.X(d.s[i]), pts: [[P.X(d.s[i]), P.Y(d.mean[i]), 'fn']], html: tip(`${Math.round(d.s[i] * 100)}% of the way`, [['Mean', pct(d.mean[i], 0)], ['Middle 50%', `${pct(q(0.25), 0)} to ${pct(q(0.75), 0)}`]]) };
+          const i = nearest(d.s, P.xInv(px));
+          return { cross: P.X(d.s[i]), pts: [[P.X(d.s[i]), P.Y(d.mean[i]), 'fn']], html: tip(`${Math.round(d.s[i] * 100)}% of the way`, [['Mean', pct(d.mean[i], 0)], ['Middle 50%', `${pct(d.q25[i], 0)} to ${pct(d.q75[i], 0)}`]]) };
         });
       } },
     { id: 'variance', title: 'How much each mode explains', height: 260,
@@ -505,10 +511,10 @@ const crashShapes = {
   insights: d => {
     const C = d.correlations;
     return [
-      `<b>A loose typical shape.</b> Three modes explain ${pct(d.cumulative[2], 0)} of the variation between ${d.episodes.length} crashes. ShapeLab's jawlines reach about 90% with three.`,
+      `<b>A loose typical shape.</b> Three modes explain ${pct(d.cumulative[2], 0)} of the variation between ${d.counts.total} crashes. ShapeLab's jawlines reach about ${pct(d.reference.jaw_three_modes, 0)} with three.`,
       `<b>Where the bottom falls sets the shape.</b> Mode 2 tracks the timing of the trough (r = ${fmt(C.mode2_trough_at, 2)}). Mode 1 separates quick V's from long U's.`,
-      Math.abs(C.mode1_depth) > 0.2
-        ? `<b>Deep crashes look different.</b> Mode 1 against depth gives r = ${fmt(C.mode1_depth, 2)}: deeper crashes lean ${C.mode1_depth < 0 ? 'U-shaped, with a long flat bottom' : 'V-shaped'}.`
+      d.depth_lean
+        ? `<b>Deep crashes look different.</b> Mode 1 against depth gives r = ${fmt(C.mode1_depth, 2)}: deeper crashes lean ${LEAN[d.depth_lean]}.`
         : `<b>Depth barely sets the shape.</b> Mode 1 against depth gives r = ${fmt(C.mode1_depth, 2)}.`,
     ];
   },

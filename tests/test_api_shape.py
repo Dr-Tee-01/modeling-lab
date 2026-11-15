@@ -212,3 +212,108 @@ def test_skin_cactus(client):
 @pytest.mark.parametrize("q", ["mesh=cat4", "method=foo", "angle=361", "angle=-400"])
 def test_skin_validation(client, q):
     err(client, f"/skin?{q}")
+
+
+# ---------------------------------------------------------------- catalogue and derived fields
+# The browser holds no shape data: lists, labels, sizes and every derived number come from here.
+
+
+def test_catalog_shape_section(client):
+    r = client.get("/api/catalog")
+    assert r.status_code == 200
+    c = r.get_json()["shape"]
+    meshes = ok(client, "/meshes")["meshes"]
+    assert {m["name"]: (m["n_vertices"], m["n_faces"]) for m in meshes} == {
+        k: (v["n_vertices"], v["n_faces"]) for k, v in c["meshes"].items()
+    }
+    assert c["meshes"]["cat4"]["label"] == "Cat" and c["meshes"]["bunny"]["label"] == "Bunny"
+    assert c["meshes"]["cat4"]["closed"] is False and c["meshes"]["cat4"]["boundary_vertices"] > 0
+    assert c["meshes"]["bunny"]["closed"] is True and c["meshes"]["bunny"]["euler_characteristic"] == 2
+    assert c["outlines"] == {
+        "bird1": {"label": "Bird 1", "n_points": 843, "coefficients_for_10pct": 6},
+        "bird2": {"label": "Bird 2", "n_points": 793, "coefficients_for_10pct": 5},
+    }
+    jaw = c["jaw"]
+    assert (jaw["n_shapes"], jaw["n_landmarks"], jaw["n_coordinates"], jaw["max_modes"]) == (300, 41, 82, 10)
+    model = ok(client, "/jaw-model?n_modes=10")
+    assert jaw["variance_explained"] == pytest.approx(model["variance_explained"])
+    assert jaw["sample_count"] == len(model["aligned_sample"])
+    sp = c["spectral"]
+    assert sp["meshes"] == ["cat4", "bunny"] and sp["basis"] == {"cat4": 120, "bunny": 100}
+    assert sp["gps_dims"] == 20 and sp["max_parts"] == 10
+    assert set(c["curvature"]["meshes"]) <= set(c["meshes"])
+    rigs = c["skinning"]["rigs"]
+    assert set(rigs) == {"cylinder", "cactus"}
+    assert rigs["cactus"]["n_handles"] == 4 and rigs["cactus"]["pose_ratios"] == pytest.approx([1, 0.26 / 0.31], rel=1e-5)
+    assert rigs["cylinder"]["pose"] == "twist" and rigs["cactus"]["pose"] == "bend"
+
+
+def test_fourier_summary(client):
+    b = ok(client, "/fourier?outline=bird1&keep=6")
+    s = b["summary"]
+    assert s["share_for_10pct"] == pytest.approx(6 / 843, rel=1e-4)
+    assert s["compression"] == pytest.approx(843 / 6, rel=1e-4)
+    assert s["doubled"]["keep"] == 12 and s["doubled"]["error"] == pytest.approx(b["error_curve"][12])
+    gaps = np.linalg.norm(np.array(b["original"]) - np.array(b["reconstruction"]), axis=1)
+    assert np.allclose(b["gaps"], gaps, atol=1e-3)
+    ec = np.array(b["error_curve"])
+    # spectrum[i] is the size of coefficient i: dropping it lowers the squared error by spectrum[i]^2
+    assert len(b["spectrum"]) == 200
+    assert np.allclose(np.array(b["spectrum"][:50]) ** 2, ec[:50] ** 2 - ec[1:51] ** 2, atol=1e-5)
+    assert ok(client, "/fourier?outline=bird2&keep=793")["summary"]["doubled"] is None
+
+
+def test_jaw_sample_summary(client):
+    mean = np.array(ok(client, "/jaw-model")["mean"])
+    s = ok(client, "/jaw-sample?b1=2&b2=-1")
+    shape = np.array(s["shape"])
+    shifts = np.linalg.norm(shape - mean, axis=1)
+    sm = s["summary"]
+    assert sm["distance_sd"] == pytest.approx(math.sqrt(5))
+    assert np.allclose(sm["shifts"], shifts, atol=1e-5)
+    j = int(np.argmax(shifts))
+    assert sm["max_shift"]["landmark"] == j + 1
+    assert sm["max_shift"]["share_of_width"] == pytest.approx(shifts[j] / np.ptp(mean[:, 0]), rel=1e-4)
+    assert ok(client, "/jaw-sample")["summary"]["distance_sd"] == 0
+
+
+def test_spectral_and_segment_summary(client):
+    b = ok(client, "/spectral?mesh=cat4&k=30")
+    assert b["basis"] == 120 and b["n_vertices"] == 3400  # default basis is the one the interface uses
+    assert b["summary"]["share_kept"] == pytest.approx(30 / 3400, rel=1e-4)
+    g = ok(client, "/segment?mesh=cat4&parts=5")
+    assert g["n_vertices"] == 3400 and g["restarts"] == 10
+    assert g["shares"] == pytest.approx([x / 3400 for x in g["sizes"]], rel=1e-5)
+    assert sum(g["shares"]) == pytest.approx(1)
+    sm = g["summary"]
+    assert (sm["largest"], sm["smallest"]) == (max(g["sizes"]), min(g["sizes"]))
+    assert sm["largest_share"] == pytest.approx(max(g["sizes"]) / 3400, rel=1e-5)
+    assert sm["smallest_share"] == pytest.approx(min(g["sizes"]) / 3400, rel=1e-5)
+
+
+@pytest.mark.parametrize("mesh", ["cat4", "bunny"])
+def test_curvature_summary(client, mesh):
+    b = ok(client, f"/curvature?mesh={mesh}")
+    for f in ("gaussian", "mean"):
+        x = np.array([np.nan if v is None else v for v in b[f]], dtype=float)
+        assert b["summary"][f]["negative_share"] == pytest.approx(np.mean(x < 0), abs=1e-6)
+        assert b["summary"][f]["positive_share"] == pytest.approx(np.mean(x > 0), abs=1e-6)
+        assert b["range_limit"][f] == pytest.approx(max(map(abs, b["range"][f])))
+    gb = b["gauss_bonnet"]
+    assert gb["matches"] is True
+    assert gb["expected_over_pi"] == 2 * gb["euler_characteristic"]
+    assert b["range_percentiles"] == [2, 98]
+    s = ok(client, "/surface-curvature?surface=saddle&n=21")
+    assert s["K_abs_max"] == pytest.approx(np.max(np.abs(s["K"])), rel=1e-5)
+
+
+def test_skin_derived_fields(client):
+    d = ok(client, "/skin?mesh=cylinder&method=lbs&angle=90")
+    assert d["pose"] == "twist" and d["pose_angles"] == [90]
+    assert d["lbs_midpoint_scale"] == pytest.approx(math.cos(math.radians(45)))
+    assert d["full_turn"] is False
+    assert ok(client, "/skin?mesh=cylinder&method=lbs&angle=360")["full_turn"] is True
+    assert ok(client, "/skin?mesh=cylinder&method=lbs&angle=0")["full_turn"] is False
+    c = ok(client, "/skin?mesh=cactus&method=dqs&angle=20")
+    assert c["pose"] == "bend" and c["pose_angles"] == pytest.approx([20, 20 * 0.26 / 0.31], rel=1e-5)
+    assert "lbs_midpoint_scale" not in c

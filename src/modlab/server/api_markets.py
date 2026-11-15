@@ -4,13 +4,18 @@ as background jobs ("rnn_returns", "lstm_trap") through /api/jobs.
 """
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 from flask import Blueprint
+
+from stocklab import models as M
 
 from ..markets import common as C
 from ..markets import neural, returns as RET, stylized as STY, volatility as VOL
 from .api import ApiError, choice, choices, endpoint, num
 from .cache import memo
+from .catalog import section
 from .jobs import register
 
 bp = Blueprint("markets", __name__, url_prefix="/api/markets")
@@ -33,6 +38,35 @@ def _years() -> tuple[int, int]:
 def _with_cache_flag(pair) -> dict:
     value, cached = pair
     return {**value, "_cached": cached}
+
+
+# ----------------------------------------------------------------------------
+# Reference data for the interface (GET /api/catalog -> "markets")
+# ----------------------------------------------------------------------------
+@section("markets")
+@functools.lru_cache(maxsize=1)
+def catalog() -> dict:
+    """Tickers with their data range, the model registry and the walk-forward protocol."""
+    tickers = []
+    for t in C.TICKERS:
+        idx = C.prices(t).index
+        name, kind = C.TICKER_INFO.get(t, (t, "stock"))
+        tickers.append({"id": t, "name": name, "kind": kind,
+                        "start": idx[0].strftime("%Y-%m-%d"), "end": idx[-1].strftime("%Y-%m-%d")})
+    last_year = int(max(t["end"] for t in tickers)[:4])
+    return {
+        "tickers": tickers,
+        "first_year": int(min(t["start"] for t in tickers)[:4]), "last_year": last_year,
+        "end_year": min(last_year, C.YEAR_MAX),          # last test year the endpoints accept
+        "year_bounds": [C.YEAR_MIN, C.YEAR_MAX],
+        "val_years": M.VAL_YEARS,
+        "models": {k: {"name": n, "short": sh} for k, (n, sh) in C.MODEL_NAMES.items()},
+        "vol_models": VOL.VOL_MODELS, "return_models": RET.RET_MODELS, "pooled_models": RET.POOLED_MODELS,
+        "rnn_models": neural.RNN_MODELS, "rnn_window": neural.RNN_WINDOW,
+        "trap_models": [{"id": k, "name": n} for k, n in neural.TRAP_MODELS.items()],
+        "trap_split": {"train": neural.TRAP_TRAIN_SHARE, "test": 1 - neural.TRAP_TRAIN_SHARE},
+        "rnn_available": C.torch_available(),
+    }
 
 
 # ----------------------------------------------------------------------------
@@ -116,7 +150,7 @@ def stylized():
 # ----------------------------------------------------------------------------
 def _parse_rnn(body: dict) -> dict:
     start, end = _years()
-    return {"ticker": _ticker(), "model": choice("model", "lstm", ["lstm", "gru"]),
+    return {"ticker": _ticker(), "model": choice("model", "lstm", neural.RNN_MODELS),
             "epochs": num("epochs", 10, 1, 30, integer=True), "start_year": start, "end_year": end,
             "cost_bps": float(num("cost_bps", 5, 0, 100))}
 

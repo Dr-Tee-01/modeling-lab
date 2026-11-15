@@ -1,5 +1,5 @@
 """Copy each lab's standalone demo into web/ with a full document head and a
-'back to Modeling Lab' bar, so all three ship as sub-pages of the hub."""
+'back to ModeLab AI' bar, so all three ship as sub-pages of the hub."""
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -8,7 +8,7 @@ WEB = ROOT / "web"
 HEAD = ('<!doctype html>\n<html lang="en">\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n')
 
-BAR = """<div class="ml-back"><a href="index.html#{tab}">&larr; Modeling Lab</a><span>{label}</span></div>
+BAR = """<div class="ml-back"><a href="index.html#{tab}">&larr; ModeLab AI</a><span>{label}</span></div>
 <style>
 .ml-back{{--ml-bg:#14181F;--ml-fg:#E8ECF2;--ml-mute:#9AA3B0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
   padding:8px 16px;background:var(--ml-bg);color:var(--ml-fg);font:500 13px/1.4 "IBM Plex Sans",system-ui,sans-serif}}

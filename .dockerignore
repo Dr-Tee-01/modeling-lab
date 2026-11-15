@@ -13,3 +13,5 @@ crossover
 results
 *.md
 !README.md
+.env
+.env.*

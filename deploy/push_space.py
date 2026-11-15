@@ -17,7 +17,7 @@ from huggingface_hub import HfApi
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FRONT_MATTER = """---
-title: Modeling Lab
+title: ModeLab AI
 emoji: 📈
 colorFrom: blue
 colorTo: green

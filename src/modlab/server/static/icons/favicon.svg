@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ModeLab AI">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0.0" stop-color="#4F7CFF"/><stop offset="0.55" stop-color="#8B5CF6"/><stop offset="1.0" stop-color="#22D3EE"/></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15.0" fill="url(#g)"/>
+  <rect width="64" height="64" rx="15.0" fill="url(#sheen)"/>
+  <path d="M13.00 45.24 L13.78 45.07 L14.55 44.88 L15.33 44.66 L16.11 44.41 L16.88 44.13 L17.66 43.81 L18.44 43.44 L19.21 43.03 L19.99 42.57 L20.77 42.05 L21.54 41.47 L22.32 40.84 L23.10 40.14 L23.87 39.38 L24.65 38.56 L25.43 37.67 L26.20 36.73 L26.98 35.74 L27.76 34.71 L28.53 33.64 L29.31 32.55 L30.09 31.45 L30.86 30.35 L31.64 29.27 L32.41 28.21 L33.19 27.18 L33.97 26.20 L34.74 25.27 L35.52 24.40 L36.30 23.59 L37.07 22.84 L37.85 22.16 L38.63 21.54 L39.40 20.98 L40.18 20.47 L40.96 20.02 L41.73 19.62 L42.51 19.26 L43.29 18.95 L44.06 18.67 L44.84 18.43 L45.62 18.22 L46.39 18.03 L47.17 17.87 L47.95 17.73 L48.72 17.61 L49.50 17.50" fill="none" stroke="#fff" stroke-width="6.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="49.5" cy="17.5" r="5.6" fill="#fff"/>
+  <path d="M47.0 37.5 C47.748 44.13 48.87 45.252 55.5 46.0 C48.87 46.748 47.748 47.87 47.0 54.5 C46.252 47.87 45.13 46.748 38.5 46.0 C45.13 45.252 46.252 44.13 47.0 37.5Z" fill="#fff" fill-opacity=".92"/>
+</svg>

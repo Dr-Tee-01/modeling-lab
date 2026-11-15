@@ -2,26 +2,23 @@
 // theme toggle, server status, and the Home and API pages.
 import { call } from './api.js';
 import { h, icon } from './ui/dom.js';
-import { S, edge, node, text } from './ui/illustrate.js';
+import { catalog } from './catalog.js';
+import { S, edge, node, paints, text } from './ui/illustrate.js';
 import { mountWorkbench } from './ui/workbench.js';
+import { renderExplainer } from './explain.js';
+import { mountAssistant } from './ui/assistant.js';
 import spread from './views/spread.js';
 import shape from './views/shape.js';
 import markets from './views/markets.js';
 import crossover from './views/crossover.js';
 import agents from './views/agents.js';
 
-const GROUPS = [
-  { id: 'spread', label: 'Spread', icon: 'spread', color: 's1', title: 'How things move through a population',
-    blurb: 'Six models from the MC312 mathematical-modelling labs, solved with RK4 and Monte Carlo on every request.', views: spread },
-  { id: 'shape', label: 'Shape', icon: 'shape', color: 's2', title: 'Geometry processing from first principles',
-    blurb: 'The ShapeLab library: Fourier descriptors, shape models, curvature, Laplace–Beltrami spectra and skinning.', views: shape },
-  { id: 'markets', label: 'Markets', icon: 'markets', color: 's3', title: 'Can machine learning predict the market?',
-    blurb: 'Walk-forward forecasting of returns and volatility, 1993–2026. Neural nets train as background jobs.', views: markets },
-  { id: 'crossover', label: 'Crossover', icon: 'crossover', color: 's4', title: 'Market data through the other two lenses',
-    blurb: 'Random-walk tests, fear cleared like a drug dose, and the shapes of 68 market crashes.', views: crossover },
-  { id: 'agents', label: 'Agents', icon: 'agents', color: 'accent', title: 'Snake: search versus deep Q-learning',
-    blurb: 'Play Snake, watch four agents play it, train the original project\'s deep Q-network live, and compare them on the same boards.', views: agents },
-];
+// The labs (names, order, descriptions, membership) come from the server's catalog; a view keeps
+// its own route (#/spread/sir, #/crossover/dose ...), the lab only decides where it is shown.
+const SPECS = Object.fromEntries([...spread, ...shape, ...markets, ...crossover, ...agents].map(v => [`${v.group}/${v.id}`, v]));
+const GROUPS = catalog.labs.labs.map(l => ({ id: l.id, label: l.name, short: l.short || l.name, icon: l.icon, color: l.color, title: l.title, blurb: l.blurb,
+  views: l.views.map(k => SPECS[k]).filter(Boolean) }));
+const first = g => `#/${g.views[0].group}/${g.views[0].id}`;
 const VIEWS = GROUPS.flatMap(g => g.views.map(v => ({ ...v, groupMeta: g })));
 const view = document.getElementById('view');
 const app = document.getElementById('app');
@@ -36,7 +33,7 @@ function buildNav() {
     h('div.nav-group', h('a', { href: '#/', 'data-route': '' }, icon('home'), 'Home')),
     ...GROUPS.filter(g => g.views.length).map(g => h('div.nav-group',
       h('div.nav-label', h('span.dot', { style: { background: `var(--${g.color})` } }), g.label),
-      ...g.views.map(v => h('a', { href: `#/${g.id}/${v.id}`, 'data-route': `${g.id}/${v.id}` }, v.nav || v.title, navTag(v) ? h('span.tag', navTag(v)) : null)))),
+      ...g.views.map(v => h('a', { href: `#/${v.group}/${v.id}`, 'data-route': `${v.group}/${v.id}` }, v.nav || v.title, navTag(v) ? h('span.tag', navTag(v)) : null)))),
     h('div.nav-group', h('a', { href: '#/api', 'data-route': 'api' }, icon('api'), 'API')));
 }
 
@@ -52,20 +49,30 @@ function route() {
   let { path, params } = parse();
   if (path in LEGACY) { history.replaceState(null, '', '#/' + LEGACY[path]); path = LEGACY[path]; }
   current?.destroy?.(); current = null;
-  document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.route === path) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  const navPath = path.replace(/\/explain$/, '');
+  document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.route === navPath) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   app.classList.remove('nav-open');
   window.scrollTo({ top: 0 });
 
-  if (path === '' ) { renderHome(); document.title = 'Modeling Lab'; return; }
-  if (path === 'api') { renderApi(); document.title = 'API · Modeling Lab'; return; }
+  if (path === '' ) { renderHome(); document.title = 'ModeLab AI'; return; }
+  if (path === 'api') { renderApi(); document.title = 'API · ModeLab AI'; return; }
+  if (path.endsWith('/explain')) {
+    const key = path.slice(0, -'/explain'.length), sp = VIEWS.find(v => `${v.group}/${v.id}` === key);
+    if (sp) {
+      document.title = `${sp.nav || sp.title}: explained · ModeLab AI`;
+      current = renderExplainer(view, key, { groupMeta: sp.groupMeta, spec: sp });
+      view.focus({ preventScroll: true });
+      return;
+    }
+  }
   let spec = VIEWS.find(v => `${v.group}/${v.id}` === path);
-  if (!spec) { const g = GROUPS.find(x => x.id === path.split('/')[0] && x.views.length); if (g) { location.hash = `#/${g.id}/${g.views[0].id}`; return; } renderMissing(); return; }
-  document.title = `${spec.nav || spec.title} · Modeling Lab`;
+  if (!spec) { const g = GROUPS.find(x => x.id === path.split('/')[0] && x.views.length); if (g) { location.hash = first(g); return; } renderMissing(); return; }
+  document.title = `${spec.nav || spec.title} · ModeLab AI`;
   const g = spec.groupMeta;
-  const crumbs = [h('a', { href: '#/' }, 'Home'), '›', h('a', { href: `#/${g.id}/${g.views[0].id}` }, g.label), '›', h('span', spec.nav || spec.title)];
+  const crumbs = [h('a', { href: '#/' }, 'Home'), '›', h('a', { href: first(g) }, g.label), '›', h('span', spec.nav || spec.title)];
   const start = () => {
     current = mountWorkbench(view, spec, params, {
-      crumbs,
+      crumbs, accent: g.color,
       onState: st => {
         const q = new URLSearchParams(Object.entries(st).map(([k, v]) => [k, String(v)])).toString();
         history.replaceState(null, '', `#/${spec.group}/${spec.id}${q ? '?' + q : ''}`);
@@ -84,18 +91,23 @@ function renderHome() {
   const page = h('div.page',
     h('section.hero',
       h('div',
-        h('p.eyebrow', 'Tirth Chaudhari · computational modelling'),
+        h('p.eyebrow', 'ModeLab AI · by Tirth Chaudhari'),
         h('h1', 'Epidemics, 3D shapes, stock markets and a Snake AI, computed live on one numerical toolkit'),
         h('p.lede', { html: 'Move any control and a Flask server re-solves the model: <b>RK4 integration, Monte Carlo, eigen-decompositions, least-squares fits, walk-forward model training and deep Q-learning.</b> Nothing is precomputed, and every panel shows how long the server took.' }),
         h('div.hero-actions',
-          h('a.btn.primary', { href: '#/spread/sir' }, icon('play', ''), 'Start with the 1978 flu outbreak'),
-          h('a.btn', { href: '#/crossover/random-walk' }, 'See the crossover study'),
-          h('button.btn.ghost', { type: 'button', onclick: openPalette }, icon('search', ''), 'Jump to a model'))),
-      h('div.card.illus', ill, h('p.cap', 'One shared core of numerical methods powers all five sections.'))),
-    h('div.pillars', ...GROUPS.filter(g => g.views.length).map(g => h('section.card.pillar',
+          h('a.btn.primary', { href: '#/spread/sir' }, icon('play', ''), `Start with the ${catalog.spread?.flu?.year ?? ''} flu outbreak`.replace('  ', ' ')),
+          h('a.btn', { href: '#/timeseries' }, 'Explore the Time Series Lab'),
+          h('button.btn.ghost', { type: 'button', onclick: openPalette }, icon('search', ''), 'Jump to a model')),
+        h('div.hero-stats',
+          h('div', h('b', String(VIEWS.length)), h('span', 'live models')),
+          h('div', h('b', String(GROUPS.length)), h('span', 'labs, one core')),
+          h('div', h('b', '0'), h('span', 'precomputed results')))),
+      h('div.card.illus', ill, h('p.cap', `One shared core of numerical methods powers all ${GROUPS.length} labs.`))),
+    h('div.pillars', ...GROUPS.filter(g => g.views.length).map(g => h('section.card.pillar', { style: { '--pc': `var(--${g.color})` } },
       h('div.pillar-head', h('span.badge', { style: { color: `var(--${g.color})` } }, icon(g.icon, '')), h('div', h('p.eyebrow', g.label), h('h3', g.title))),
       h('p', g.blurb),
-      h('ul.model-list', ...g.views.map(v => h('li', h('a', { href: `#/${g.id}/${v.id}` }, v.nav || v.title, h('span', v.tag || '')))))))),
+      h('ul.model-list', ...g.views.map(v => h('li', h('a', { href: `#/${v.group}/${v.id}` }, v.nav || v.title, h('span', v.tag || '')),
+        h('a.learn', { href: `#/${v.group}/${v.id}/explain`, title: `Read the illustrated explanation of ${v.nav || v.title}`, 'aria-label': `Explanation of ${v.nav || v.title}` }, icon('book', '')))))))),
     h('section', { style: { display: 'grid', gap: '12px' } },
       h('h2', 'How every view works'),
       h('div.steps',
@@ -108,14 +120,13 @@ function renderHome() {
 }
 
 function drawCore(host) {
-  const svg = S('svg', { class: 'ill', viewBox: '0 0 600 300', role: 'img', 'aria-label': 'Shared numerical core feeding five sections' }, host);
-  const defs = S('defs', {}, svg), m = S('marker', { id: 'ah-home', viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 12, markerHeight: 12, markerUnits: 'userSpaceOnUse', orient: 'auto' }, defs);
-  S('path', { d: 'M0 0 L10 5 L0 10 z', style: 'fill:var(--ink-2)' }, m); svg.dataset.marker = 'ah-home';
+  const svg = S('svg', { class: 'ill', viewBox: '0 0 600 300', role: 'img', 'aria-label': `Shared numerical core feeding ${GROUPS.length} labs` }, host);
+  paints(svg, 'home');
   const core = node(svg, { x: 185, y: 112, w: 230, h: 76, title: 'Shared core', sub: 'RK4 · Monte Carlo · PCA · fits', hot: true });
   const pos = [[20, 20], [420, 20], [20, 216], [420, 216], [220, 236]];
   GROUPS.forEach((g, i) => {
     const [x, y] = pos[i];
-    const n = node(svg, { x, y, w: 160, h: i === 4 ? 56 : 64, title: g.label, sub: `${g.views.length} live views` });
+    const n = node(svg, { x, y, w: 160, h: i === 4 ? 56 : 64, title: g.short, sub: `${g.views.length} live views` });
     const from = i === 4 ? [core.cx, core.b + 4] : [i % 2 ? core.r : core.x, i < 2 ? core.y + 10 : core.b - 10];
     const to = i === 4 ? [n.cx, n.y - 4] : [i % 2 ? n.x - 4 : n.r + 4, n.cy];
     edge(svg, from, to, { width: 2.5, cls: 'st' + ((i % 4) + 1), flow: true });
@@ -154,7 +165,10 @@ function renderMissing() {
 
 /* ------------------------------------------------------------ palette */
 function openPalette() {
-  const items = [{ label: 'Home', sub: '', href: '#/' }, ...VIEWS.map(v => ({ label: v.nav || v.title, sub: `${v.groupMeta.label}${v.tag ? ' · ' + v.tag : ''}`, href: `#/${v.group}/${v.id}`, words: `${v.title} ${v.question || ''}` })), { label: 'API', sub: '', href: '#/api' }];
+  const items = [{ label: 'Home', sub: '', href: '#/' },
+    ...VIEWS.map(v => ({ label: v.nav || v.title, sub: `${v.groupMeta.label}${v.tag ? ' · ' + v.tag : ''}`, href: `#/${v.group}/${v.id}`, words: `${v.title} ${v.question || ''}` })),
+    ...VIEWS.map(v => ({ label: `Explain: ${v.nav || v.title}`, sub: 'Illustrated explanation', href: `#/${v.group}/${v.id}/explain`, words: `${v.title} explanation learn how why` })),
+    { label: 'API', sub: '', href: '#/api' }];
   const input = h('input', { type: 'search', placeholder: 'Search models, e.g. "lockdown", "LSTM", "curvature"', 'aria-label': 'Search models' });
   const list = h('ul', { role: 'listbox' });
   const wrap = h('div.palette-wrap', { onclick: e => { if (e.target === wrap) close(); } }, h('div.card.palette', { role: 'dialog', 'aria-label': 'Jump to a model' }, input, list));
@@ -212,6 +226,41 @@ document.querySelectorAll('[data-palette]').forEach(b => { if (!b.children.lengt
 document.addEventListener('keydown', e => {
   if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName))) { e.preventDefault(); if (!document.querySelector('.palette-wrap')) openPalette(); }
 });
+
+/* Pointer spotlight: every card lights up softly where the pointer is. */
+let spotRaf = 0, spotEv = null, spotCard = null;
+document.addEventListener('pointermove', e => {
+  spotEv = e; if (spotRaf) return;
+  spotRaf = requestAnimationFrame(() => {
+    spotRaf = 0;
+    const card = spotEv.target.closest?.('.card') || null;
+    if (spotCard && spotCard !== card) { spotCard.style.removeProperty('--mx'); spotCard.style.removeProperty('--my'); }
+    spotCard = card; if (!card) return;
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', `${spotEv.clientX - r.left}px`); card.style.setProperty('--my', `${spotEv.clientY - r.top}px`);
+  });
+}, { passive: true });
+
+/* What the assistant is told about the current page (everything here was rendered from server data). */
+function pageContext() {
+  const { path, params } = parse();
+  const isView = p => VIEWS.some(v => `${v.group}/${v.id}` === p);
+  const kind = path.endsWith('/explain') ? 'explanation' : isView(path) ? 'model' : path === 'api' ? 'api' : path ? 'page' : 'home';
+  const view = kind === 'explanation' ? path.slice(0, -'/explain'.length) : kind === 'model' ? path : null;
+  const tidy = el => el.innerText.replace(/\s+/g, ' ').trim();
+  const on = document.querySelector('.ex-toc nav a.on');
+  return {
+    view,
+    page: {
+      title: document.querySelector('#view h1')?.textContent.trim() || 'ModeLab AI', kind,
+      params: kind === 'model' && current?.state ? { ...current.state } : params,
+      kpis: [...document.querySelectorAll('#view .kpi:not(.skeleton)')].map(tidy).filter(Boolean),
+      insights: [...document.querySelectorAll('#view .insights li')].map(tidy).filter(Boolean),
+      section: on ? [...on.childNodes].filter(n => !n.classList?.contains('num')).map(n => n.textContent).join('').trim() : '',
+    },
+  };
+}
+mountAssistant({ getContext: pageContext });
 
 buildNav();
 paintThemeButton();

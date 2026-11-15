@@ -36,10 +36,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build image
-        run: docker build -t modeling-lab .
+        run: docker build -t modelab-ai .
       - name: Run container and smoke-test the API
         run: |
-          docker run -d --name app -p 7860:7860 modeling-lab
+          docker run -d --name app -p 7860:7860 modelab-ai
           for i in $(seq 1 60); do curl -fs http://localhost:7860/api/health && break; sleep 2; done
           set -e
           for path in \
@@ -81,7 +81,7 @@ jobs:
           HF_SPACE: ${{ vars.HF_SPACE }}
         run: |
           if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE" ]; then
-            echo "::notice::Skipping deploy: set the HF_TOKEN secret and the HF_SPACE variable (e.g. yourname/modeling-lab)."
+            echo "::notice::Skipping deploy: set the HF_TOKEN secret and the HF_SPACE variable (e.g. yourname/modelab-ai)."
             exit 0
           fi
           pip install "huggingface_hub>=0.30,<2"

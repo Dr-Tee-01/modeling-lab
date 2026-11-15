@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "modeling-lab"
+name = "modelab-ai"
 version = "0.2.0"
 description = "Epidemics, 3D shapes and markets on one numerical toolkit, served live by Flask."
 readme = "README.md"

@@ -210,6 +210,28 @@ def walk_forward(scope: str, models: tuple, start_year: int, end_year: int):
     return P, preds, info, test & has
 
 
+def _top(keys: list, value) -> str | None:
+    """The key with the largest value (first one on ties; None/NaN never wins)."""
+    best, bv = None, None
+    for k in keys:
+        v = value(k)
+        if best is None or (v is not None and np.isfinite(v) and (bv is None or v > bv)):
+            best, bv = k, (v if v is not None and np.isfinite(v) else None)
+    return best
+
+
+def return_summary(scores: dict, backtest: dict, models: list) -> dict:
+    """The best model by R² vs zero, by direction hit rate and by timing Sharpe ratio.
+    Models that are long on (almost) every day are just buy and hold, so they are
+    left out of the two timing picks unless nothing else is left."""
+    always_long = [k for k in models if backtest[k].get("time_in_market", 0) > 0.999]
+    timers = [k for k in models if k not in always_long] or models
+    return {"best": {"r2": _top(models, lambda k: scores[k]["r2_oos"]),
+                     "hit": _top(timers, lambda k: scores[k]["hit_rate"]),
+                     "sharpe": _top(timers, lambda k: backtest[k].get("sharpe"))},
+            "always_long": always_long}
+
+
 def score_and_backtest(P, preds: dict, test: np.ndarray, models: list, cost_bps: float) -> dict:
     """Scores (stocklab.evaluate.return_scores), long/flat backtests and weekly equity."""
     R = P.loc[test, ["Date", "ticker", "y"]].copy()
@@ -243,6 +265,7 @@ def score_and_backtest(P, preds: dict, test: np.ndarray, models: list, cost_bps:
         f = R[k].values
         backtest[k]["time_in_market"] = float(np.mean(f > 0))
     return {"models": out_models, "always_up_hit_rate": up, "backtest": backtest,
+            "summary": return_summary(out_models, backtest, list(models)), "cost_bps": cost_bps,
             "equity": weekly_equity(pnl), "n_test": int(len(R)),
             "test_start": R["Date"].min().strftime("%Y-%m-%d"), "test_end": R["Date"].max().strftime("%Y-%m-%d")}
 
@@ -253,6 +276,9 @@ def returns(scope: str, models: tuple, start_year: int, end_year: int, cost_bps:
     out = {"ticker": scope, "years": year_range(start_year, end_year)}
     out.update(score_and_backtest(P, preds, test, list(models), cost_bps))
     out["hyperparams"] = info
-    out["cost_bps"] = cost_bps
+    alphas = [v["alpha"] for v in info.get("ridge", {}).values() if v and "alpha" in v]
+    if alphas:                                  # how often ridge chose its strongest penalty
+        out["summary"]["ridge_alpha"] = {"max": max(alphas), "years_at_max": alphas.count(max(alphas)),
+                                         "years": len(alphas)}
     out["target"] = "next-day close-to-close log return"
     return out

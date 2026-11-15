@@ -5,6 +5,7 @@ from flask import Blueprint, request
 
 from ..agents import snake as S
 from .api import ApiError, choice, choices, endpoint, num
+from .catalog import section
 from .jobs import register
 
 bp = Blueprint("agents", __name__, url_prefix="/api/agents")
@@ -37,6 +38,34 @@ def episode():
                     max_steps=num("max_steps", 3000, 50, 10000, integer=True))
     if agent == "dqn":
         out["model"] = S.get_model(model_id)["id"]
+    return out
+
+
+@bp.post("/snake/play")
+@endpoint
+def play_new():
+    """Start an interactive game on the server. Returns the board, the 11 features and the DQN's hint."""
+    body = request.get_json(silent=True) or {}
+    seed = body.get("seed")
+    if seed is not None:
+        try:
+            seed = int(seed)
+        except (TypeError, ValueError):
+            raise ApiError("seed must be a whole number.", "invalid_parameter")
+    return S.play_new(seed)
+
+
+@bp.post("/snake/play/<sid>/step")
+@endpoint
+def play_step(sid):
+    """Advance an interactive game by one move. Body: {"direction": 0 right | 1 down | 2 left | 3 up | null}."""
+    body = request.get_json(silent=True) or {}
+    d = body.get("direction")
+    if d is not None and d not in (0, 1, 2, 3):
+        raise ApiError("direction must be 0 (right), 1 (down), 2 (left), 3 (up) or null.", "invalid_parameter")
+    out = S.play_step(sid, d)
+    if out is None:
+        raise ApiError("That game has expired. Start a new one.", "no_game", 404)
     return out
 
 
@@ -104,4 +133,10 @@ def _compare(params, progress):
             if done % 3 == 0 or done == total:
                 progress(done / total, f"{a}: game {i + 1}/{params['episodes']}")
         out[a] = S.summarise(runs)
-    return {"agents": out, "episodes": params["episodes"], "seed": params["seed"], "model": params["model"]}
+    return {"agents": out, "episodes": params["episodes"], "seed": params["seed"], "model": params["model"],
+            "summary": S.compare_summary(out, params["episodes"], params["seed"])}
+
+
+@section("agents")
+def _catalog():
+    return S.catalog()

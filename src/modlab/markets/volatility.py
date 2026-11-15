@@ -56,6 +56,19 @@ def _predict(coef: np.ndarray, X: np.ndarray) -> np.ndarray:
         return coef[0] + X @ coef[1:]
 
 
+def vol_summary(scores: dict, har_coef: dict) -> dict:
+    """What the tiles and insights state: the best model by out-of-sample R² of log
+    variance, the baseline it is compared with (the 21-day average when selected, else
+    the weakest model), the gain in R², and the latest yearly HAR coefficients."""
+    ranked = sorted(scores, key=lambda m: -scores[m]["r2_log"])
+    best = ranked[0]
+    base = ("hist21" if "hist21" in scores else ranked[-1]) if len(ranked) > 1 else None
+    latest = {m: {"year": max(by), "coef": by[max(by)]} for m, by in har_coef.items() if by}
+    return {"best": best, "baseline": base,
+            "gain_over_baseline": None if base is None else scores[best]["r2_log"] - scores[base]["r2_log"],
+            "har_latest": latest}
+
+
 @memo(maxsize=64)
 def volatility(ticker: str, models: tuple, start_year: int, end_year: int,
                var_alpha: float, var_model: str) -> dict:
@@ -134,6 +147,7 @@ def volatility(ticker: str, models: tuple, start_year: int, end_year: int,
 
     tdx = dates[test]
     return {
+        "summary": vol_summary(scores, har_coef),
         "ticker": ticker,
         "years": years,
         "models": scores,
@@ -144,6 +158,8 @@ def volatility(ticker: str, models: tuple, start_year: int, end_year: int,
             "next_return": rn,
             "var_normal": thr_norm,
             "var_fhs": thr_fhs,
+            "breach_normal": np.nonzero(rn < thr_norm)[0],      # indices of the test days past each VaR
+            "breach_fhs": np.nonzero(rn < thr_fhs)[0],
         },
         "var": var,
         "params": {"garch": garch_params, "har": har_coef},

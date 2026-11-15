@@ -185,3 +185,70 @@ def test_jobs_fail_cleanly_without_torch(client, monkeypatch):
     job = wait_job(client, {"kind": "rnn_returns", "ticker": "AAPL", "model": "lstm", "epochs": 2,
                             "start_year": 2026, "end_year": 2026})
     assert job["status"] == "failed" and msg in job["error"]
+
+
+# ---------------------------------------------------------------------------- catalog and summaries
+def test_catalog_markets(client):
+    c = get(client, "/api/catalog")["markets"]
+    ids = [t["id"] for t in c["tickers"]]
+    assert ids == ["SPY", "AAPL", "MSFT", "NVDA", "JPM", "XOM"]
+    by = {t["id"]: t for t in c["tickers"]}
+    assert by["SPY"]["kind"] == "fund" and by["AAPL"]["kind"] == "stock" and by["NVDA"]["name"] == "Nvidia"
+    assert by["NVDA"]["start"][:4] == "1999" and by["SPY"]["start"][:4] == "1993"      # read from the CSVs
+    assert c["first_year"] == 1993 and c["end_year"] == min(c["last_year"], c["year_bounds"][1])
+    assert c["val_years"] == 2
+    for m in c["vol_models"] + c["return_models"] + c["rnn_models"] + ["zero", "buy_hold"]:
+        assert c["models"][m]["name"] and c["models"][m]["short"]
+    assert c["models"]["har_x"] == {"name": "HAR-RV + VIX", "short": "HAR + VIX"}
+    assert [m["id"] for m in c["trap_models"]] == ["naive", "leaky", "clean"]
+    assert c["trap_split"]["train"] + c["trap_split"]["test"] == pytest.approx(1)
+
+
+def test_volatility_summary(client):
+    j = get(client, "/api/markets/volatility?ticker=SPY")
+    s, m = j["summary"], j["models"]
+    assert s["best"] == max(m, key=lambda k: m[k]["r2_log"]) and s["baseline"] == "hist21"
+    assert s["gain_over_baseline"] == pytest.approx(m[s["best"]]["r2_log"] - m["hist21"]["r2_log"], abs=1e-5)
+    last = max(j["params"]["har"]["har_x"])
+    assert s["har_latest"]["har_x"] == {"year": int(last), "coef": j["params"]["har"]["har_x"][last]}
+    S = j["series"]
+    r, vn = np.array(S["next_return"]), np.array(S["var_normal"])
+    assert len(S["breach_normal"]) == j["var"]["normal"]["exceed"] and all(r[i] < vn[i] for i in S["breach_normal"])
+    assert len(S["breach_fhs"]) == j["var"]["fhs"]["exceed"]
+    for x in (j["var"]["normal"], j["var"]["fhs"]):
+        assert x["verdict"] == ("ok" if x["kupiec_p"] >= 0.05 else "too_often" if x["rate"] > 0.01 else "too_rarely")
+    one = get(client, "/api/markets/volatility?ticker=SPY&models=ewma&start_year=2024")["summary"]
+    assert one["best"] == "ewma" and one["baseline"] is None and one["gain_over_baseline"] is None
+
+
+def test_returns_summary(client):
+    j = get(client, "/api/markets/returns?ticker=SPY&models=hist_mean,ridge,gbm")
+    s, m, bt = j["summary"], j["models"], j["backtest"]
+    ks = ["hist_mean", "ridge", "gbm"]
+    assert s["best"]["r2"] == max(ks, key=lambda k: m[k]["r2_oos"])
+    assert s["always_long"] == [k for k in ks if bt[k]["time_in_market"] > 0.999]
+    timers = [k for k in ks if k not in s["always_long"]] or ks
+    assert s["best"]["hit"] == max(timers, key=lambda k: m[k]["hit_rate"])
+    assert s["best"]["sharpe"] == max(timers, key=lambda k: bt[k]["sharpe"])
+    alphas = [v["alpha"] for v in j["hyperparams"]["ridge"].values()]
+    assert s["ridge_alpha"] == {"max": max(alphas), "years_at_max": alphas.count(max(alphas)), "years": len(alphas)}
+    assert j["cost_bps"] == 5
+
+
+def test_lstm_trap_summary(client):
+    pytest.importorskip("torch")
+    job = wait_job(client, {"kind": "lstm_trap", "ticker": "SPY", "epochs": 1, "window": 20})
+    res = job["result"]
+    assert res["best"] == max(res["scores"], key=lambda k: res["scores"][k]["r2"])
+    assert res["xcorr_peak_lag"] == int(max(res["xcorr"], key=res["xcorr"].get))
+    assert res["test_over_train_max"] == pytest.approx(res["test_max"] / res["train_max"], rel=1e-4)
+    assert res["train_share"] + res["test_share"] == pytest.approx(1)
+
+
+def test_rnn_returns_summary(client):
+    pytest.importorskip("torch")
+    job = wait_job(client, {"kind": "rnn_returns", "ticker": "XOM", "model": "gru", "epochs": 1,
+                            "start_year": 2025, "end_year": 2026})
+    res = job["result"]
+    assert res["summary"]["best"]["r2"] == "gru" and res["cost_bps"] == 5
+    assert res["summary"]["epochs_used_mean"] == pytest.approx(np.mean(list(res["epochs_used"].values())))

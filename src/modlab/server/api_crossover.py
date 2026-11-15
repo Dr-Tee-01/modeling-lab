@@ -1,14 +1,38 @@
 """/api/crossover: the market data through the spread and shape toolkits, live."""
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 from flask import Blueprint
 
 from ..crossover import study as S
 from .api import ApiError, choice, choices, endpoint, flag, num
 from .cache import memo
+from .catalog import section
 
 bp = Blueprint("crossover", __name__, url_prefix="/api/crossover")
+
+
+SHAPE_DEFAULTS = (0.10, 0.20, 48, 15)          # SPY depth, stock depth, landmarks, minimum days
+
+
+@section("crossover")
+@functools.lru_cache(maxsize=1)
+def catalog() -> dict:
+    """Tickers with their data range, the VIX range and the crisis windows of the dose model."""
+    tickers = [{"id": t, "start": str(S.load(t).index[0].date()), "end": str(S.load(t).index[-1].date())}
+               for t in S.TICKERS]
+    v = S.vix()
+    vs, ve = str(v.index[0].date()), str(v.index[-1].date())
+    return {
+        "tickers": tickers,
+        "first_year": int(min(t["start"] for t in tickers)[:4]), "last_year": int(max(t["end"] for t in tickers)[:4]),
+        "vix": {"start": vs, "end": ve},
+        "vix_windows": [{"id": "all", "label": f"{vs[:4]}–{ve[:4]}", "start": vs, "end": ve}]
+        + [{"id": k, "label": k, "start": lo, "end": hi} for k, (lo, hi) in S.VIX_WINDOWS.items()],
+        "crash_count": len(S.crash_shapes(*SHAPE_DEFAULTS, tuple(S.TICKERS))["episodes"]),
+    }
 
 
 def _value(fn, *args):
@@ -60,10 +84,8 @@ def vix_model():
                            compartments=comp, fit=flag("fit"), a=num("a", 0.77, 0, 1),
                            hl_fast=num("hl_fast", 5.9, 0.2, 60), hl_slow=num("hl_slow", 44, 1, 400))
     idx, x, m = out.pop("_series")
-    window = choice("window", "all", ["all", "2008", "2020", "2025"])
-    ranges = {"all": (None, None), "2008": ("2007-06-01", "2010-01-01"),
-              "2020": ("2019-10-01", "2021-01-01"), "2025": ("2024-10-01", "2026-12-31")}
-    lo, hi = ranges[window]
+    window = choice("window", "all", ["all", *S.VIX_WINDOWS])
+    lo, hi = S.VIX_WINDOWS.get(window, (None, None))
     mask = np.ones(len(x), bool) if lo is None else (idx >= lo) & (idx < hi)
     sel = np.nonzero(mask)[0]
     step = -(-len(sel) // num("points", 1500, 100, 9000, integer=True))      # ceil, so we never exceed points
@@ -78,8 +100,9 @@ def _shapes(spy_depth, stock_depth, landmarks, min_days, tickers):
 
 
 def _shape_params():
-    return (num("spy_depth", 0.10, 0.05, 0.5), num("stock_depth", 0.20, 0.05, 0.8),
-            num("landmarks", 48, 12, 200, integer=True), num("min_days", 15, 5, 252, integer=True),
+    d = SHAPE_DEFAULTS
+    return (num("spy_depth", d[0], 0.05, 0.5), num("stock_depth", d[1], 0.05, 0.8),
+            num("landmarks", d[2], 12, 200, integer=True), num("min_days", d[3], 5, 252, integer=True),
             tuple(choices("tickers", S.TICKERS, S.TICKERS)))
 
 
@@ -87,7 +110,14 @@ def _shape_params():
 @endpoint
 def crash_shapes():
     out, cached = _value(_shapes, *_shape_params())
-    return dict({k: v for k, v in out.items() if k != "_model"}, _cached=cached)
+    return dict({k: v for k, v in out.items() if k != "_model"}, reference=_reference(), _cached=cached)
+
+
+def _reference() -> dict:
+    """ShapeLab's jaw model, for comparison: the share of variation its first three modes explain."""
+    from ..shape_service import jaw_model
+    jm, _ = jaw_model()
+    return {"jaw_three_modes": float(np.cumsum(jm.model.explained)[:3][-1])}
 
 
 @bp.get("/crash-sample")

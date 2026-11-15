@@ -11,14 +11,33 @@ export function S(tag, attrs = {}, parent) {
 }
 const T = (parent, x, y, text, cls, attrs = {}) => { const t = S('text', Object.assign({ x, y, class: cls }, attrs), parent); t.textContent = text; return t; };
 
-/* canvas(host, height): clears host and returns an <svg> with a shared arrow marker. */
+const calm = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Shared paint servers: gradient fills for boxes, a soft glow, gradient text, an arrow head.
+   Every diagram SVG carries its own copy (same ids, same content), so any one of them resolves. */
+export function paints(svg, key) {
+  const defs = S('defs', {}, svg);
+  const grad = (id, stops, attrs = { x1: 0, y1: 0, x2: 0, y2: 1 }) => {
+    const g = S('linearGradient', { id, ...attrs }, defs);
+    stops.forEach(([o, c]) => S('stop', { offset: o, style: `stop-color:${c}` }, g));
+  };
+  grad('ill-node', [[0, 'color-mix(in srgb,var(--surface-2) 92%,var(--accent))'], [1, 'var(--sunk)']]);
+  grad('ill-hot', [[0, 'color-mix(in srgb,var(--accent) 34%,var(--surface))'], [1, 'color-mix(in srgb,var(--v1) 26%,var(--surface))']], { x1: 0, y1: 0, x2: 1, y2: 1 });
+  grad('ill-text', [[0, 'var(--accent-2)'], [1, 'var(--v1)']], { x1: 0, y1: 0, x2: 1, y2: 0 });
+  const f = S('filter', { id: 'ill-glow', x: '-30%', y: '-30%', width: '160%', height: '160%' }, defs);
+  S('feGaussianBlur', { in: 'SourceGraphic', stdDeviation: 3.2, result: 'b' }, f);
+  const mg = S('feMerge', {}, f); S('feMergeNode', { in: 'b' }, mg); S('feMergeNode', { in: 'SourceGraphic' }, mg);
+  const m = S('marker', { id: 'ah-' + key, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 12, markerHeight: 12, markerUnits: 'userSpaceOnUse', orient: 'auto-start-reverse' }, defs);
+  S('path', { d: 'M0 0 L10 5 L0 10 z', style: 'fill:color-mix(in srgb,var(--accent-2) 60%,var(--ink-2))' }, m);
+  svg.dataset.marker = 'ah-' + key;
+  return defs;
+}
+
+/* canvas(host, height): clears host and returns an <svg> with the shared paints. */
 export function canvas(host, height = 220) {
   host.innerHTML = '';
   const svg = S('svg', { class: 'ill', viewBox: `0 0 600 ${height}`, role: 'img' }, host);
-  const defs = S('defs', {}, svg);
-  const m = S('marker', { id: 'ah-' + host.dataset.k, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 12, markerHeight: 12, markerUnits: 'userSpaceOnUse', orient: 'auto-start-reverse' }, defs);
-  S('path', { d: 'M0 0 L10 5 L0 10 z', style: 'fill:var(--ink-2)' }, m);
-  svg.dataset.marker = 'ah-' + host.dataset.k;
+  paints(svg, host.dataset.k);
   return svg;
 }
 
@@ -46,6 +65,14 @@ export function edge(svg, a, b, o = {}) {
   const d = o.curve ? `M${a[0]},${a[1]} Q${mx + (o.curve[0] || 0)},${my + (o.curve[1] || 0)} ${b[0]},${b[1]}` : `M${a[0]},${a[1]} L${b[0]},${b[1]}`;
   S('path', { d, class: 'edge ' + (o.cls || ''), 'stroke-width': width, 'marker-end': o.arrow === false ? null : `url(#${svg.dataset.marker})` }, g);
   if (o.flow) S('path', { d, class: 'edge flow', 'stroke-width': Math.max(1, width - 1), stroke: 'var(--surface)', opacity: 0.7 }, g);
+  // Particles travel along busy edges: more and faster when the edge is thicker (a higher rate).
+  if ((o.flow || width >= 3) && o.particles !== false && !calm()) {
+    const n = width >= 7 ? 3 : width >= 4 ? 2 : 1, dur = Math.max(0.9, 2.6 - width * 0.16);
+    for (let i = 0; i < n; i++) {
+      const c = S('circle', { r: Math.min(3.4, 1.6 + width * 0.18), class: 'particle', opacity: 0.9 }, g);
+      S('animateMotion', { dur: dur + 's', repeatCount: 'indefinite', begin: (-i * dur / n).toFixed(2) + 's', path: d, keyPoints: '0;1', keyTimes: '0;1', calcMode: 'linear' }, c);
+    }
+  }
   if (o.label) {
     const [lx, ly] = o.labelAt || [mx + (o.curve ? (o.curve[0] || 0) / 2 : 0), my + (o.curve ? (o.curve[1] || 0) / 2 : 0) - 12];
     T(g, lx, ly, o.label, 'edge-lbl', { 'text-anchor': 'middle' });

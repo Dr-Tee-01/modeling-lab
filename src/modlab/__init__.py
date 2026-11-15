@@ -1,4 +1,4 @@
-"""Modeling Lab: one numerical toolkit, three domains, served live.
+"""ModeLab AI: one numerical toolkit, three domains, served live.
 
 Packages
 --------

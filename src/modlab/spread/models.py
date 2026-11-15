@@ -15,19 +15,34 @@ _trapz = getattr(np, "trapezoid", None) or np.trapz
 # Influenza in an English boarding school, January 1978 (BMJ): boys in bed, days 1-14.
 FLU_1978 = np.array([3, 8, 26, 76, 225, 298, 258, 233, 189, 128, 68, 29, 14, 4], dtype=float)
 FLU_N = 763
+FLU_I0 = 1                       # one boy ill on day 0
+FLU = {"place": "an English boarding school", "month": "January", "year": 1978, "source": "BMJ",
+       "population": FLU_N, "initial_cases": FLU_I0, "first_day": 1, "last_day": len(FLU_1978),
+       "observations": len(FLU_1978)}
+
+# Solver steps and fixed model constants (also published in the catalog, so the
+# interface describes the method from the same numbers the solver uses).
+DOSING_VOLUME_ML, DOSING_H, DOSING_HOURS = 3000, 0.05, 240
+BASS_H = 0.05
+SIR_H, SIR_DAYS = 0.01, 20
+RUMOUR_N0, RUMOUR_S0, RUMOUR_H, RUMOUR_DAYS = 1000, 10, 0.05, 100
+DECAY_N0, DECAY_T_MAX = 1000, 100
+COIN_SEQUENCES, COIN_P = 6, 0.5
+WALK2D_MSD_SLOPE = 1.5           # E|X_n|^2 = 1.5 n for 8-neighbour steps
+WALK_PATHS_SHOWN, WALK2D_PATHS_SHOWN, DECAY_RUNS_SHOWN = 40, 12, 20
 
 
 # --------------------------------------------------------------------- Lab 2: dosing
 def dosing(model: str = "one", dose_mg: float = 100, tau_h: float = 8, half_life_h: float = 22,
            absorbed: float = 0.12, ka: float = 0.6, load: float = 1.0, mec: float = 10, mtc: float = 20,
-           volume_ml: float = 3000, t_end: float = 240) -> dict:
+           volume_ml: float = DOSING_VOLUME_ML, t_end: float = DOSING_HOURS) -> dict:
     """Repeated oral dosing. ``model='one'``: dose enters the blood at once and is
     cleared at rate k = ln2 / t½ (exact solution). ``model='two'``: dose goes to the
     gut, moves to the blood at rate ka, and is cleared at rate k (RK4 between doses)."""
     D = dose_mg * 1000 * absorbed / volume_ml          # µg/mL added to the blood per dose
     k = np.log(2) / half_life_h
     p = np.exp(-k * tau_h)                             # fraction left when the next dose arrives
-    h = 0.05
+    h = DOSING_H
     doses = np.arange(0, t_end, tau_h)
     amount = np.where(np.arange(len(doses)) == 0, D * load, D)
 
@@ -65,14 +80,15 @@ def dosing(model: str = "one", dose_mg: float = 100, tau_h: float = 8, half_life
         "share_in_window": inside, "status": status,
         "loading_multiplier": 1 / (1 - p), "loading_dose_mg": dose_mg / (1 - p),
         "hours_to_90pct": float(np.log(10) / k),
-        "solver": "exact" if model == "one" else "rk4",
+        "solver": "exact" if model == "one" else "rk4", "step_h": h,
+        "volume_ml": volume_ml, "hours": float(t_end), "horizon_days": float(t_end / 24),
     }
 
 
 # --------------------------------------------------------------------- Lab 4: Bass
 def bass(p: float = 0.03, q: float = 0.38, market: float = 100, years: float = 25) -> dict:
     """dN/dt = (p + q N/M)(M - N), solved by RK4 and checked against the closed form."""
-    h = 0.05
+    h = BASS_H
     t, Y = ode.rk4(lambda _, y: np.array([(p + q * y[0] / market) * (market - y[0])]), [0.0], years, h)
     N = Y[:, 0]
     e = np.exp(-(p + q) * t)
@@ -86,12 +102,14 @@ def bass(p: float = 0.03, q: float = 0.38, market: float = 100, years: float = 2
         "peak_year": float(t_peak), "peak_sales": float(market * (p + q) ** 2 / (4 * q)) if q > p else float(p * market),
         "max_solver_error": float(np.abs(N - exact).max()),
         "share_innovators": float(_trapz(innov, t) / max(_trapz(innov + imit, t), 1e-12)),
+        "word_of_mouth_takes_over": bool(q > p),            # sales have an interior peak only when q > p
+        "final_adopters": float(N[-1]), "final_share": float(N[-1] / market), "years": float(years),
     }
 
 
 # --------------------------------------------------------------------- Labs 5-6: SIR
 def sir(beta: float = 1.66, alpha: float = 0.5, vaccinate_pct: float = 0, lockdown: bool = False,
-        lock_start: float = 3, lock_days: float = 10, lock_cut_pct: float = 50, days: float = 20,
+        lock_start: float = 3, lock_days: float = 10, lock_cut_pct: float = 50, days: float = SIR_DAYS,
         n: int = FLU_N) -> dict:
     """SIR for the 1978 school with optional daily vaccination and a lockdown window."""
     v = vaccinate_pct / 100
@@ -106,8 +124,8 @@ def sir(beta: float = 1.66, alpha: float = 0.5, vaccinate_pct: float = 0, lockdo
         vac = v * S
         return np.array([-inf - vac, inf - alpha * I, alpha * I, vac, inf])
 
-    h = 0.01
-    t, Y = ode.rk4(f, [n - 1, 1, 0, 0, 1], days, h)
+    h = SIR_H
+    t, Y = ode.rk4(f, [n - FLU_I0, FLU_I0, 0, 0, FLU_I0], days, h)
     I = Y[:, 1]
     model_days = ode.sample(t, Y, np.arange(1, len(FLU_1978) + 1))[:, 1]
     pk = int(I.argmax())
@@ -119,6 +137,10 @@ def sir(beta: float = 1.66, alpha: float = 0.5, vaccinate_pct: float = 0, lockdo
         "rmse": float(np.sqrt(np.mean((model_days - FLU_1978) ** 2))),
         "r0": beta / alpha, "peak": float(I[pk]), "peak_day": float(t[pk]),
         "ever_infected": float(Y[-1, 4]), "share_infected": float(Y[-1, 4] / n),
+        "at_peak": {"S": float(Y[pk, 0]), "I": float(I[pk]), "R": float(Y[pk, 2])},
+        "population": n, "days": float(days), "days_ill": 1 / alpha,
+        "rmse_days": [FLU["first_day"], FLU["last_day"]],
+        "lockdown": {"start": lock_start, "end": lock_start + lock_days, "factor": cut} if lockdown else None,
     }
 
 
@@ -129,7 +151,7 @@ def sir_fit(n: int = FLU_N) -> dict:
     def resid(x):
         beta, alpha = x
         t, Y = ode.rk4(lambda _, y: np.array([-beta * y[0] * y[1] / n, beta * y[0] * y[1] / n - alpha * y[1]]),
-                       [n - 1, 1], float(days[-1]), h)
+                       [n - FLU_I0, FLU_I0], float(days[-1]), h)
         return ode.sample(t, Y, days)[:, 1] - FLU_1978
 
     fit = fitting.least_squares(resid, [1.5, 0.5], [0.1, 0.05], [5.0, 2.0])
@@ -139,7 +161,8 @@ def sir_fit(n: int = FLU_N) -> dict:
 
 
 # --------------------------------------------------------------------- Labs 7-8: rumour
-def rumour(beta: float = 0.3, gamma: float = 0.1, alpha: float = 0.0, newcomers: float = 0.0, days: float = 100) -> dict:
+def rumour(beta: float = 0.3, gamma: float = 0.1, alpha: float = 0.0, newcomers: float = 0.0,
+           days: float = RUMOUR_DAYS) -> dict:
     """Ignorants i, spreaders s, stiflers r (people out of 1,000 at the start).
     Spreading at beta*s*i/N; a spreader stops when meeting s or r at gamma*(s+r)/N;
     an education campaign moves ignorants to stiflers at rate alpha; newcomers join as ignorants."""
@@ -149,8 +172,8 @@ def rumour(beta: float = 0.3, gamma: float = 0.1, alpha: float = 0.0, newcomers:
         sf = gamma * (y[1] + y[2]) / N * y[1]
         return np.array([newcomers - sp - alpha * y[0], sp - sf, sf + alpha * y[0], sp])
 
-    t, Y = ode.rk4(f, [990, 10, 0, 10], days, 0.05)
-    c, i0 = beta / gamma, 0.99
+    t, Y = ode.rk4(f, [RUMOUR_N0 - RUMOUR_S0, RUMOUR_S0, 0, RUMOUR_S0], days, RUMOUR_H)
+    c, i0 = beta / gamma, (RUMOUR_N0 - RUMOUR_S0) / RUMOUR_N0
     R0 = 1 + c
     pure = alpha == 0 and newcomers == 0
     s_max = 1 - (1 / c) * (1 + np.log(i0) - i0 + np.log(R0))
@@ -159,22 +182,24 @@ def rumour(beta: float = 0.3, gamma: float = 0.1, alpha: float = 0.0, newcomers:
         r_inf = 1 - np.exp(-R0 * r_inf)
     drift = None
     if pure:   # conserved along exact trajectories when alpha = newcomers = 0
-        Q = Y[:, 1] / 1000 - np.log(Y[:, 0] / 1000) / c + (1 / c + 1) * Y[:, 0] / 1000
+        Q = Y[:, 1] / RUMOUR_N0 - np.log(Y[:, 0] / RUMOUR_N0) / c + (1 / c + 1) * Y[:, 0] / RUMOUR_N0
         drift = float(np.abs(Q - Q[0]).max())
     pk = int(Y[:, 1].argmax())
-    total = 1000 + newcomers * days
+    total = RUMOUR_N0 + newcomers * days
     step = 10
     return {
         "t": t[::step], "ignorant": Y[::step, 0], "spreader": Y[::step, 1], "stifler": Y[::step, 2],
         "peak_spreaders": float(Y[pk, 1]), "peak_day": float(t[pk]),
         "reach": float(Y[-1, 3] / total),
-        "theory": {"s_max": float(s_max * 1000) if pure else None, "r_inf": float(r_inf) if pure else None, "R0": R0},
+        "theory": {"s_max": float(s_max * RUMOUR_N0) if pure else None, "r_inf": float(r_inf) if pure else None, "R0": R0},
         "conserved_drift": drift,
+        "at_peak": {"ignorant": float(Y[pk, 0]), "spreader": float(Y[pk, 1]), "stifler": float(Y[pk, 2])},
+        "days": float(days), "population": RUMOUR_N0,
     }
 
 
 # --------------------------------------------------------------------- Lab 9: Monte Carlo
-def decay(lam: float = 0.05, runs: int = 100, n0: int = 1000, t_max: int = 100, seed: int = 9) -> dict:
+def decay(lam: float = 0.05, runs: int = 100, n0: int = DECAY_N0, t_max: int = DECAY_T_MAX, seed: int = 9) -> dict:
     """Each atom gets an exact random decay time; averages are compared with N0 e^(-lam t)."""
     g = montecarlo.rng(seed)
     times = np.maximum(1, np.ceil(-np.log(1 - g.random((runs, n0))) / lam))   # step at which each atom decays
@@ -186,23 +211,30 @@ def decay(lam: float = 0.05, runs: int = 100, n0: int = 1000, t_max: int = 100, 
     half = np.nonzero(mean <= n0 / 2)[0]
     i_half = min(t_max, int(round(np.log(2) / lam)))
     return {
-        "t": grid, "mean": mean, "sd": sd, "theory": theory, "runs_shown": alive[:20],
+        "t": grid, "mean": mean, "sd": sd, "theory": theory, "runs_shown": alive[:DECAY_RUNS_SHOWN],
         "half_life_measured": float(half[0]) if len(half) else None, "half_life_theory": float(np.log(2) / lam),
         "sd_at_half_life": float(sd[i_half]),
         "sd_theory_at_half_life": float(np.sqrt(n0 * np.exp(-lam * i_half) * (1 - np.exp(-lam * i_half)))),
         "max_gap_to_theory": float(np.abs(mean - theory).max()),
         "first_run_decay_times": times[0].astype(int),
+        "band_hi": mean + sd, "band_lo": mean - sd,
+        "n0": n0, "t_max": t_max, "half_life_step": i_half,
+        "first_run_left_at_half_life": int((times[0] > i_half).sum()),
     }
 
 
-def coins(n: int = 5000, sequences: int = 6, seed: int = 9) -> dict:
+def coins(n: int = 5000, sequences: int = COIN_SEQUENCES, seed: int = 9) -> dict:
     """Running share of heads in several sequences of fair coin tosses."""
     g = montecarlo.rng(seed)
-    heads = np.cumsum(g.random((sequences, n)) < 0.5, axis=1)
+    heads = np.cumsum(g.random((sequences, n)) < COIN_P, axis=1)
     k = np.arange(1, n + 1)
     idx = np.unique(np.r_[np.arange(min(n, 200)), np.linspace(0, n - 1, 800).astype(int)])
-    return {"n": idx + 1, "share": heads[:, idx] / k[idx], "band": 1.96 * 0.5 / np.sqrt(k[idx]),
-            "final": heads[:, -1] / n}
+    band = 1.96 * np.sqrt(COIN_P * (1 - COIN_P)) / np.sqrt(k[idx])
+    final = heads[:, -1] / n
+    return {"n": idx + 1, "share": heads[:, idx] / k[idx], "band": band,
+            "band_hi": COIN_P + band, "band_lo": COIN_P - band, "p_heads": COIN_P,
+            "final": final, "final_min": float(final.min()), "final_max": float(final.max()),
+            "sequences": sequences}
 
 
 # --------------------------------------------------------------------- Lab 10: random walk
@@ -217,10 +249,27 @@ def walk(p: float = 0.5, steps: int = 200, walkers: int = 2000, seed: int = 10) 
     normal = None
     if var_t > 0:   # the normal approximation, spread over the lattice spacing of 2
         normal = walkers * 2 * np.exp(-((vals - mu_t) ** 2) / (2 * var_t)) / np.sqrt(2 * np.pi * var_t)
+    mean, var = pos.mean(axis=0), pos.var(axis=0)
+    mean_th, var_th = n * (2 * p - 1), 4 * n * p * (1 - p)
+    sd_th = np.sqrt(var_th)
+    sd_t = float(np.sqrt(var_t))
+    sd_bell = sd_t or 0.5          # p = 0 or 1: every walker lands on one site; draw a narrow bell
+    bell_x = np.linspace(mu_t - 3.5 * sd_bell, mu_t + 3.5 * sd_bell, 161)
     return {
-        "n": n, "mean": pos.mean(axis=0), "var": pos.var(axis=0),
-        "mean_theory": n * (2 * p - 1), "var_theory": 4 * n * p * (1 - p),
-        "paths": pos[:40], "final_values": vals, "final_counts": counts, "normal_expected": normal,
+        "n": n, "mean": mean, "var": var,
+        "mean_theory": mean_th, "var_theory": var_th,
+        "band_hi": mean_th + 2 * sd_th, "band_lo": mean_th - 2 * sd_th,          # theory +- 2 sd
+        "paths": pos[:WALK_PATHS_SHOWN], "final_values": vals, "final_counts": counts, "normal_expected": normal,
+        "final_edges": np.r_[vals - 1, vals[-1] + 1],                           # bins one lattice step (2) wide
+        "bell": {"x": bell_x, "y": np.exp(-((bell_x - mu_t) ** 2) / (2 * sd_bell ** 2))},   # peak scaled to 1
+        "summary": {
+            "steps": steps, "p_right": p, "p_left": 1 - p,
+            "mean": float(mean[-1]), "mean_theory": float(mu_t),
+            "var": float(var[-1]), "var_theory": float(var_t),
+            "var_rel_error": float(abs(var[-1] / var_t - 1)) if var_t > 0 else None,
+            "typical_distance": float(np.sqrt(var[-1])), "sd_theory": sd_t,
+            "range95": [float(mu_t - 2 * sd_t), float(mu_t + 2 * sd_t)],
+        },
     }
 
 
@@ -230,5 +279,6 @@ def walk2d(walkers: int = 250, steps: int = 500, seed: int = 11) -> dict:
     moves = np.array([[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]])
     xy = np.concatenate([np.zeros((walkers, 1, 2)), np.cumsum(moves[g.integers(0, 8, (walkers, steps))], axis=1)], axis=1)
     r2 = (xy**2).sum(axis=2).mean(axis=0)
-    return {"paths": xy[:12], "msd": r2, "msd_theory": 1.5 * np.arange(steps + 1),
-            "final": xy[:, -1]}
+    theory = WALK2D_MSD_SLOPE * np.arange(steps + 1)
+    return {"paths": xy[:WALK2D_PATHS_SHOWN], "msd": r2, "msd_theory": theory,
+            "final": xy[:, -1], "summary": {"msd": float(r2[-1]), "msd_theory": float(theory[-1]), "steps": steps}}

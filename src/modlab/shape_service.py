@@ -10,6 +10,7 @@ files to it and derives the few extra numbers the API reports.
 """
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,10 +28,22 @@ MESH_DIR = SHAPE_DIR / "meshes"
 WEIGHTS_DIR = SHAPE_DIR / "weights"
 LANDMARK_DIR = SHAPE_DIR / "landmarks"
 
+# Display names for data files whose stem is not a readable name; others are derived from the stem.
+MESH_LABELS = {"cat4": "Cat"}
+
 # Largest eigenbasis per mesh (bunny: 14k vertices, ~2.6 s for 150 eigenpairs).
 SPECTRAL_MAX_BASIS = {"bunny": 150}
 SPECTRAL_DEFAULT_MAX = 300
+# Basis the interface uses per mesh (and the API default): the bunny keeps 100 so its first solve stays near one second.
+SPECTRAL_BASIS = {"bunny": 100}
+SPECTRAL_BASIS_DEFAULT = 120
+SPECTRAL_MESHES = ("cat4", "bunny")
 GPS_DIMS = 20  # segment() uses phi_1..phi_20, so the basis needs >= 21 eigenpairs
+SEGMENT_RESTARTS = 10  # k-means++ starts; the lowest-inertia result is kept
+SEGMENT_MAX_PARTS = 10
+
+CURVATURE_MESHES = ("cat4", "bunny", "cactus")
+CURVATURE_RANGE_PERCENTILES = (2, 98)
 
 JAW_MAX_MODES = 10
 JAW_SAMPLE_COUNT = 24
@@ -42,6 +55,7 @@ CACTUS_AXES = [[0, 1, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0]]
 CACTUS_PROPORTIONS = np.array([0.0, 1.0, 0.0, 0.26 / 0.31])
 CYLINDER_AXIS = [0.0, 0.0, 1.0]
 SKIN_MESHES = ("cylinder", "cactus")
+SKIN_POSE = {"cylinder": "twist", "cactus": "bend"}
 SKIN_DEFAULT_ANGLE = {"cylinder": 180.0, "cactus": float(np.degrees(0.31))}
 
 
@@ -85,6 +99,16 @@ def mesh_names() -> list[str]:
     return _names(MESH_DIR, ".off")
 
 
+def mesh_label(name: str) -> str:
+    return MESH_LABELS.get(name, name.capitalize())
+
+
+def outline_label(name: str) -> str:
+    """bird1 -> "Bird 1"."""
+    m = re.fullmatch(r"(\D+?)(\d+)", name)
+    return f"{m[1].capitalize()} {m[2]}" if m else name.capitalize()
+
+
 # ---------------------------------------------------------------- outlines (Fourier)
 
 
@@ -101,6 +125,7 @@ def load_outline(name: str) -> np.ndarray:
 class FourierSummary:
     points: np.ndarray
     error_curve: np.ndarray  # relative error for K = 0..N
+    spectrum: np.ndarray  # |Z_k| / (sqrt(N) ||b||) in keep order (0, +1, -1, +2, ...)
     coefficients_for_10pct: int
 
 
@@ -108,8 +133,10 @@ class FourierSummary:
 def fourier_summary(name: str) -> FourierSummary:
     b, _ = load_outline(name)
     curve = fourier.error_curve(b)
-    _ro(curve)
-    return FourierSummary(b, curve, fourier.coefficients_for_error(b, 0.1))
+    N = len(b)
+    spectrum = np.abs(fourier.descriptors(b)[fourier.frequency_order(N)]) / (np.sqrt(N) * np.linalg.norm(b))
+    _ro(curve, spectrum)
+    return FourierSummary(b, curve, spectrum, fourier.coefficients_for_error(b, 0.1))
 
 
 @memo(maxsize=256)
@@ -165,6 +192,21 @@ def load_mesh(name: str) -> tuple[np.ndarray, np.ndarray]:
     return V, F
 
 
+@memo(maxsize=8)
+def mesh_info(name: str) -> dict:
+    """Size and topology of a mesh: what the interface lists before it loads the mesh itself."""
+    (V, F), _ = load_mesh(name)
+    nb = int(curvature.boundary_vertices(F, len(V)).sum())
+    return {
+        "label": mesh_label(name),
+        "n_vertices": int(len(V)),
+        "n_faces": int(len(F)),
+        "closed": nb == 0,
+        "boundary_vertices": nb,
+        "euler_characteristic": euler_characteristic(V, F),
+    }
+
+
 def euler_characteristic(V: np.ndarray, F: np.ndarray) -> int:
     E = np.unique(np.sort(np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]]), axis=1), axis=0)
     used = len(np.unique(F))  # isolated vertices do not belong to the surface
@@ -204,6 +246,11 @@ def spectral_max_basis(name: str) -> int:
     return min(SPECTRAL_MAX_BASIS.get(name, SPECTRAL_DEFAULT_MAX), len(V) - 1)
 
 
+def spectral_basis(name: str) -> int:
+    """The basis size the interface uses for this mesh (also the API default)."""
+    return min(SPECTRAL_BASIS.get(name, SPECTRAL_BASIS_DEFAULT), spectral_max_basis(name))
+
+
 @dataclass(frozen=True)
 class Spectral:
     basis: spectral.Eigenbasis
@@ -235,7 +282,7 @@ def spectral_reconstruct(sp: Spectral, k: int) -> np.ndarray:
 def segmentation(name: str, basis_k: int, parts: int) -> np.ndarray:
     sp, _ = eigenbasis(name, basis_k)
     with quiet():
-        labels = spectral.segment(sp.basis, int(parts), n=GPS_DIMS)
+        labels = spectral.segment(sp.basis, int(parts), n=GPS_DIMS, restarts=SEGMENT_RESTARTS)
     _ro(labels)
     return labels
 
@@ -296,6 +343,7 @@ def surface_curvature(kind: str, a: tuple[float, ...], n: int, extent: float) ->
             "k2": float(o.k2),
             "type": surf.classify(0.0, 0.0),
         },
+        "K_abs_max": float(np.max(np.abs(c.K))),
         "closed_form": {
             "formula": k_formula,
             "K": Kc,
@@ -345,6 +393,13 @@ def skin_pose(name: str, V: np.ndarray, handles: np.ndarray, angle_deg: float):
         angles[int(np.argmax(V[handles, 2]))] = theta
         return skinning.handle_transforms(V, handles, axes=axes, angles=angles)
     return skinning.handle_transforms(V, handles, axes=CACTUS_AXES, angles=CACTUS_PROPORTIONS * theta)
+
+
+def skin_pose_ratios(name: str) -> list[float]:
+    """Angle of each moving handle relative to the API's ``angle`` (cylinder: the top cap; cactus: arm 1, arm 2)."""
+    if name == "cylinder":
+        return [1.0]
+    return [float(r) for r in CACTUS_PROPORTIONS if r != 0]
 
 
 @memo(maxsize=64)

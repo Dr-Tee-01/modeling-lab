@@ -15,6 +15,10 @@ from .returns import design, score_and_backtest
 
 RNN_WINDOW = 20          # as stocklab.experiments.returns_experiment
 TRAP_MAX_POINTS = 800
+TRAP_TRAIN_SHARE = 0.8   # the tutorial's chronological split
+RNN_MODELS = ["lstm", "gru"]
+TRAP_MODELS = {"naive": "Tomorrow = today", "leaky": "Tutorial LSTM (scaler fitted on all prices)",
+               "clean": "Same LSTM, leak fixed"}
 
 
 def rnn_returns(params: dict, progress) -> dict:
@@ -48,6 +52,7 @@ def rnn_returns(params: dict, progress) -> dict:
            "years": [f[0] for f in folds]}
     out.update(score_and_backtest(P, {kind: pred}, test & has, [kind], cost_bps))
     out["epochs_used"] = epochs_used
+    out["summary"]["epochs_used_mean"] = float(np.mean(list(epochs_used.values()))) if epochs_used else None
     out["val_mse"] = val_mse
     return out
 
@@ -62,7 +67,7 @@ def lstm_trap(params: dict, progress) -> dict:
     ticker, win, epochs, seed = params["ticker"], params["window"], params["epochs"], M.SEED
     price = prices(ticker)["AdjClose"]
     vals = price.values.reshape(-1, 1)
-    split = int(len(vals) * 0.8)
+    split = int(len(vals) * TRAP_TRAIN_SHARE)
     total = 2 * epochs
 
     def run(scaler, run_idx: int, label: str):
@@ -114,17 +119,20 @@ def lstm_trap(params: dict, progress) -> dict:
     dp, da = np.diff(pred_a), np.diff(actual)
     xcorr = {lag: float(np.corrcoef(dp[lag:], da[:len(da) - lag])[0, 1]) for lag in range(6)}
     k = stride(len(actual), TRAP_MAX_POINTS)
+    sc = {"naive": scores(naive), "leaky": scores(pred_a), "clean": scores(pred_b)}
+    train_max, test_max = float(vals[:split].max()), float(vals[split:].max())
     dates = price.index[idx_a]
     return {
         "ticker": ticker, "window": win, "epochs": epochs,
         "dates": iso(dates[::k]), "actual": actual[::k], "naive": naive[::k],
         "leaky": pred_a[::k], "clean": pred_b[::k], "stride": k,
-        "scores": {"naive": scores(naive), "leaky": scores(pred_a), "clean": scores(pred_b)},
+        "scores": sc, "best": max(sc, key=lambda m: sc[m]["r2"]),
         "direction_hit": float(np.mean(np.sign(chg_pred) == np.sign(chg_actual))),
         "change_corr": float(np.corrcoef(chg_pred, chg_actual)[0, 1]),
-        "xcorr": xcorr,
+        "xcorr": xcorr, "xcorr_peak_lag": max(xcorr, key=xcorr.get),
         "train_loss": {"leaky": loss_a, "clean": loss_b},
         "split_date": price.index[split].strftime("%Y-%m-%d"),
-        "train_max": float(vals[:split].max()), "test_max": float(vals[split:].max()),
+        "train_max": train_max, "test_max": test_max, "test_over_train_max": test_max / train_max,
+        "train_share": TRAP_TRAIN_SHARE, "test_share": 1 - TRAP_TRAIN_SHARE,
         "n_test": int(len(actual)),
     }

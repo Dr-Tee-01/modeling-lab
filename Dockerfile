@@ -1,4 +1,4 @@
-# Modeling Lab: Flask + gunicorn, computing every result on request.
+# ModeLab AI: Flask + gunicorn, computing every result on request.
 # Runs as uid 1000 on port 7860 (what Hugging Face Spaces expects); any host can override PORT.
 FROM python:3.11-slim
 
