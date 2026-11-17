@@ -7,12 +7,12 @@ def test_every_view_is_in_exactly_one_lab():
     keys = [k for lab in LABS for k in lab["views"]]
     assert len(keys) == len(set(keys))
     assert set(keys) == set(X.EXPLAINERS)          # each lab view has an explainer, and vice versa
-    assert [lab["name"] for lab in LABS] == ["Modeling Lab", "Geometry Lab", "Time Series Lab", "Reinforcement Learning Lab"]
+    assert [lab["name"] for lab in LABS] == ["Modeling Lab", "Geometry Lab", "Time Series Lab", "Reinforcement Learning Lab", "Big Data Lab"]
 
 
 def test_catalog_publishes_labs_in_order(client):
     labs = client.get("/api/catalog").get_json()["labs"]["labs"]
-    assert [lab["id"] for lab in labs] == ["modeling", "geometry", "timeseries", "rl"]
+    assert [lab["id"] for lab in labs] == ["modeling", "geometry", "timeseries", "rl", "bigdata"]
     ts = next(lab for lab in labs if lab["id"] == "timeseries")
     assert ts["views"][:3] == ["markets/volatility", "markets/returns", "markets/neural"]
     assert "crossover/crash-shapes" in ts["views"] and all(lab["blurb"] for lab in labs)

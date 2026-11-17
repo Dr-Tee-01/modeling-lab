@@ -19,6 +19,10 @@ LABS = [
     {"id": "rl", "name": "Reinforcement Learning Lab", "short": "RL Lab", "icon": "agents", "color": "s4",
      "title": "Snake: search versus deep Q-learning",
      "views": ["agents/play", "agents/watch", "agents/train", "agents/compare"]},
+    {"id": "bigdata", "name": "Big Data Lab", "short": "Big Data Lab", "icon": "bigdata", "color": "c1",
+     "title": "How data systems split, move and summarise data",
+     "views": ["bigdata/hdfs", "bigdata/mapreduce", "bigdata/mr-joins", "bigdata/rpc", "bigdata/rdd", "bigdata/dag",
+               "bigdata/spark-joins", "bigdata/sql", "bigdata/tables", "bigdata/olap", "bigdata/cube", "bigdata/lattice"]},
 ]
 ORDER = {key: (i, j) for i, lab in enumerate(LABS) for j, key in enumerate(lab["views"])}
 

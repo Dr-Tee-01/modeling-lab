@@ -18,7 +18,7 @@ from .api import ApiError
 from .jobs import JobManager, blueprint as jobs_blueprint
 
 # Each module defines `bp` (a Blueprint) and may register job kinds on import.
-API_MODULES = ["spread", "crossover", "shape", "markets", "agents", "explain", "assistant"]
+API_MODULES = ["spread", "crossover", "shape", "markets", "agents", "bigdata", "explain", "assistant"]
 
 
 def load_env(path: Path | None = None) -> None:

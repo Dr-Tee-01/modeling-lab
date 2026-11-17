@@ -1,0 +1,71 @@
+/* Big Data Lab · sparksql views (owned by that topic; loaded after app.css). */
+.sq-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
+.sq-code{margin:4px 0 12px;font:500 12.5px/1.55 var(--f-mono);color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.sq-mini{width:auto;min-width:100%;font-size:12px;margin:2px 0 8px;border:1px solid var(--line);border-radius:var(--r-sm);border-collapse:separate;border-spacing:0;overflow:hidden}
+.sq-mini th,.sq-mini td{padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.sq-mini th{font-size:10.5px;letter-spacing:.03em}
+.sq-mini tr:last-child td{border-bottom:0}
+.sq-mini.out th{background:color-mix(in srgb,var(--s3) 12%,var(--surface-2))}
+.sq-null{color:var(--mute);font-style:italic}
+.sq-more,.sq-empty{color:var(--mute);font-style:italic;text-align:center}
+.sq-lbl{margin:6px 0 2px;font:600 11.5px/1.3 var(--f-body);color:var(--ink-2)}
+.sq-cmp{font:500 11.5px/1 var(--f-mono);color:var(--mute);margin-left:6px}
+.sq-chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.sq-tables{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;overflow-x:auto}
+.sq-tables>div{min-width:0}
+
+/* plan trees (EXPLAIN-style) */
+.sq-tree,.sq-tree ul{list-style:none;margin:0;padding-left:0}
+.sq-tree ul{padding-left:18px;border-left:1px dashed var(--line-2);margin-left:7px}
+.sq-tree li{margin:4px 0;position:relative}
+.sq-tree ul>li::before{content:"";position:absolute;left:-18px;top:13px;width:14px;border-top:1px dashed var(--line-2)}
+.sq-node{display:inline-block;padding:4px 9px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);font-size:12.5px;line-height:1.45;max-width:100%;overflow-wrap:anywhere}
+.sq-node b{font-weight:650;color:var(--ink)}
+.sq-node code{font:500 11.5px/1.4 var(--f-mono);color:var(--ink-2)}
+.sq-node.sq-join{border-color:color-mix(in srgb,var(--s1) 55%,var(--line));background:color-mix(in srgb,var(--s1) 9%,var(--surface))}
+.sq-node.sq-move{border-color:color-mix(in srgb,var(--s2) 55%,var(--line));background:color-mix(in srgb,var(--s2) 9%,var(--surface))}
+.sq-node.sq-sort{border-color:color-mix(in srgb,var(--s4) 55%,var(--line))}
+.sq-node.sq-scan{border-color:color-mix(in srgb,var(--s3) 50%,var(--line))}
+.sq-node.sq-udf{border-color:color-mix(in srgb,var(--v1) 55%,var(--line));background:color-mix(in srgb,var(--v1) 9%,var(--surface))}
+.sq-node.sq-changed{border-color:var(--good);box-shadow:0 0 0 2px color-mix(in srgb,var(--good) 25%,transparent);background:color-mix(in srgb,var(--good) 8%,var(--surface))}
+
+/* planner checks */
+.sq-checks{margin:4px 0 10px;padding-left:20px;font-size:13px;display:grid;gap:4px}
+.sq-checks li::marker{font:600 11px var(--f-mono);color:var(--mute)}
+.sq-checks li.ok b{color:var(--good)} .sq-checks li.no b{color:var(--bad)}
+.sq-checks li.ok b::before{content:"✓ "} .sq-checks li.no b::before{content:"✗ "}
+.sq-why{font-size:13.5px;margin:6px 0 0}
+
+/* steps and partitions */
+.sq-step,.sq-stage{border-top:1px solid var(--line);padding:12px 0 4px}
+.sq-step:first-child,.sq-stage:first-child{border-top:0;padding-top:0}
+.sq-step h4,.sq-stage h4{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:14.5px}
+.sq-num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font:650 12px/1 var(--f-mono);flex:none}
+.sq-parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin:8px 0}
+.sq-part{border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:var(--surface);min-width:0;overflow-x:auto}
+.sq-part-h{margin:0 0 4px;font:650 12.5px/1.3 var(--f-body);color:var(--ink)}
+.sq-bcast{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:8px 0}
+.sq-copies{font:650 14px/1.2 var(--f-mono);color:var(--s2);margin:0}
+.sq-stages{display:grid;gap:4px}
+.sq-stage.idle{opacity:.6}
+.sq-log{margin:2px 0 8px;padding-left:18px;font-size:12.5px;color:var(--ink-2)}
+
+/* strategy comparison */
+tr.sq-off td{color:var(--mute)}
+.sq-why-not{font-style:italic;font-size:12.5px}
+
+/* file trees */
+.sq-fs,.sq-fs ul{list-style:none;margin:0;padding-left:0}
+.sq-fs ul{padding-left:16px;border-left:1px dashed var(--line-2);margin-left:6px}
+.sq-fs li{margin:3px 0;font-size:12.5px}
+.sq-fs summary{cursor:pointer}
+.sq-dir{font:600 12.5px/1.4 var(--f-mono)}
+.sq-dir.read{color:var(--good)} .sq-dir.pruned-partition{color:var(--mute)} .sq-dir.pruned-bucket{color:var(--warn)}
+.sq-file code{font:500 11.5px/1.4 var(--f-mono)}
+.sq-file.read code{color:var(--good)} .sq-file.pruned-partition code{color:var(--mute);text-decoration:line-through} .sq-file.pruned-bucket code{color:var(--warn);text-decoration:line-through}
+.sq-gone{color:var(--bad);font-style:italic;font-size:13px;margin:4px 0}
+
+/* svg marks */
+svg.plot .sq-strag{fill:none;stroke:var(--bad);stroke-width:2;stroke-dasharray:3 2}
+svg.plot .sq-sep{stroke:var(--line-2);stroke-dasharray:2 3}
+svg.plot .sq-thr{stroke:var(--warn);stroke-width:2;stroke-dasharray:6 4}

@@ -221,6 +221,41 @@ modelling labs, and the IT575 computational shape modelling library) into one pr
 
 ---
 
+## Phase 13: Big Data Lab from the IE494 course slides (2026-11-17)
+
+**Goal (yours):** add sections from the Big Data Processing course archive (18 slide decks), as the standard hands-on labs for those lessons, simulating or implementing whatever can be.
+
+| Decision | Chosen | Alternatives | Why |
+|---|---|---|---|
+| Handling the archive | Unzipped into an **empty scratch folder** and treated as untrusted: **read only, never executed**; no PDF tool was installed for it | Install a PDF library; open files in place | Downloaded archives are untrusted, and the built-in PDF reader was enough. |
+| Reading 18 decks | **Three parallel readers**, grouped by topic, each returning algorithms, exact worked datasets, simulation ideas and **slide errors** | Read everything in the main session | Keeps the main context free for building, and checking the decks against each other surfaced many slide errors (e.g. swapped iris labels, an average combiner that isn't valid, wrong stage claims). |
+| Where it goes | A fifth lab, **Big Data Lab**, with **12 views in lesson order**: HDFS, MapReduce engine, MapReduce joins, RPC, RDD playground, DAG & stages, Spark join strategies, Spark SQL plans, Tables & file layout, OLAP operations, Cube SQL operators, Cube lattice | Fold topics into existing labs | It is a separate course with its own sequence; one lab keeps the lessons together. |
+| Lab style *(owner)* | Each view mirrors the **standard lab exercise** for its lesson: a task, controls, the intermediate data at every stage (per node, partition or reducer), data movement in records and bytes, and the expected output to check | Concept demos only | You asked for the labs typically paired with these lessons. |
+| Data | **The slides' own datasets, copied exactly** into `src/modlab/bigdata/datasets.py` and checked against slide totals (30 employees over 3 nodes, WordCount splits, customer/orders joins, Han & Kamber sales cube, 30-row fact table totalling 3350, enrolment table totalling 863) | Synthetic data | Students can match every number to the lecture; synthetic data is used only where the slides give none, and is labelled. |
+| Engine | **Plain Python/pandas re-implementations** of HDFS, MapReduce, Spark RDDs, stages, join planning, Catalyst-style rules and cube operators, labelled as simulations | Run real Hadoop/Spark | Real clusters can't run per request on a single Space and hide the intermediate steps that a lab needs to show. |
+| Slide errors | Implement the **correct** behaviour and list the slide's error on the explanation page | Reproduce the slides verbatim | A teaching tool must not teach mistakes, but students should see where their slides differ. |
+| Beyond the slides | Topics the decks don't cover but the labs need (Spark planner rules, AQE/skew, the 10 MB broadcast threshold, HRU view selection, GROUPING SETS) are included and **labelled "beyond the slides"** | Leave them out | They complete the lab; the label keeps it honest. |
+| Parallel build | **Four builders**, each owning separate backend, route, view, stylesheet, explainer and test files; shared wiring auto-loads them (`api_bigdata.py` imports `bigdata_routes_*`, the explainer package imports `bigdata_*`, `views/bigdata.js` gathers topic files) | One builder in sequence | No two builders touch the same file, so work runs in parallel without conflicts. |
+
+**Implementation choices made while building (by area):**
+
+| Area | Decision | Why |
+|---|---|---|
+| HDFS | Hadoop's **rack-aware placement** (first replica local, second and third on one other rack) with a "next nodes" policy to compare; the scale-up of joins is a **cost model**, not a real run at scale | Shows why racks matter when a whole rack fails; a real 10 GB join can't run per request. |
+| MapReduce | A real engine that keeps every stage's data; the **range partitioner** uses sampled split points for numbers and letter ranges for words (matching the slide's A–I/J–Q/R–Z); the hash partitioner uses Java's `hashCode` | Students can match each reducer's input to the slides. |
+| MR joins | The customers map task runs third so the customer record arrives mid-list, **exactly as slide p12 shows**; inner/left/right/full joins selectable | Reproduces the slide's arrival order and exposes its accidental full-outer join. |
+| RPC | Seeded event simulation; three retry policies on the **same seed** | Differences come only from the policy, not the dice. |
+| RDD / DAG | Stage cutting mirrors Spark's DAGScheduler; **shuffle files are kept by default** (as in Spark), with a switch; repartition deals records round-robin from each partition's index (Spark starts randomly); Spark's first iteration assumed equal to one MapReduce pass | Faithful where it matters, deterministic where Spark is random. Assumptions are stated on the page. |
+| Spark SQL | Join selection follows **Spark 3's planner** checks in order; partition/bucket ids use a **Murmur3 matching Spark's own `hash()`** (checked against Spark's documented values) | The partition and bucket numbers shown are the ones real Spark would compute. |
+| Tables | A **seeded synthetic employee table** shaped like the course's (the slides show only 3 rows), labelled as synthetic | The deck has too few rows to show pruning or skipping. |
+| OLAP / cube | Slice and dice members are chosen by **clicking table headers** (hidden state); results are **checked against the slides' own numbers** on the page; the 4th and 5th lattice dimensions are a **seeded synthetic extension** | Clicking beats 30 switches; the self-check builds trust. Limitation: "Copy link" doesn't capture clicked selections yet. |
+
+**Result:** 12 views and 12 explainers (6–8 sections, 5–8 server-computed figures each), all reproducing the slides' worked numbers. About 30 slide errors are corrected and listed on the explanation pages (e.g. L1's read-time formula, the MAX slide that sums, the full outer join presented as an inner join, coalesce called "wide", the "100× faster" claim). **Checks:** 329 tests pass; all 33 views and explainers pass the page check; a browser sweep of all 24 Big Data pages showed every chart and figure drawn and no console errors.
+
+**Requested by the builders, not yet done:** a `table` figure kind for explanation pages, a `select` (dropdown) control for long option lists, dependent slider ranges, and drawing checks in `tools/check_views.mjs`.
+
+---
+
 ## How the work is verified (all phases)
 
 - **pytest**: numerics checked against theory (RK4 order, closed forms, conservation laws), API contracts, and every explainer figure and slider.

@@ -16,6 +16,8 @@ def _labs() -> dict:
         "timeseries": f"Walk-forward forecasting of returns and volatility for {len(markets['tickers'])} stocks, "
                       f"{markets['first_year']}–{markets['last_year']}, plus random-walk tests, fear cleared like a drug "
                       f"dose and the shapes of {crossover['crash_count']} market crashes.",
+        "bigdata": "The IE494 Big Data Processing labs, simulated step by step on the course's own datasets: HDFS, "
+                   "MapReduce, RPC, Spark RDDs and stages, Spark joins and SQL, OLAP, cube SQL and the cube lattice.",
         "rl": f"Play Snake, watch {len(agents['agents'])} agents play it, train the original project's deep Q-network "
               "live, and compare them on the same boards.",
     }

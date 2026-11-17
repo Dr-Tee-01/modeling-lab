@@ -1,0 +1,90 @@
+/* Big Data Lab · warehouse views (owned by that topic; loaded after app.css). */
+
+/* step-by-step cuboids */
+.wh-steps{display:grid;gap:14px}
+.wh-step{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface-2);display:grid;gap:10px;min-width:0}
+.wh-step.final{border-color:color-mix(in srgb,var(--s2) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--s2) 12%,transparent)}
+.wh-step header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.wh-step header b{font-weight:600}
+.wh-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font:600 12px/1 var(--f-mono)}
+.wh-step.final .wh-n{background:color-mix(in srgb,var(--s2) 18%,var(--surface));color:var(--s2)}
+.chip.wh-cub{font-family:var(--f-mono);background:var(--accent-soft);color:var(--accent)}
+.wh-meta{font:500 12px/1.4 var(--f-mono);color:var(--mute)}
+.wh-sql summary{cursor:pointer;color:var(--ink-2);font:500 12.5px/1 var(--f-mono);padding:2px 0}
+.wh-sql pre.out{margin-top:6px;max-height:300px;white-space:pre}
+.wh-scroll{max-height:460px;overflow:auto}
+.wh-scalar{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:6px 2px}
+.wh-scalar b{font:650 30px/1 var(--f-display);color:var(--ink)}
+.wh-scalar span:last-child{color:var(--mute);font-size:13px}
+
+/* tables */
+table.wh-tab{font-size:12.5px}
+table.wh-tab th,table.wh-tab td{padding:6px 9px;white-space:nowrap}
+table.wh-tab thead th{position:sticky;top:0;z-index:1}
+table.wh-tab.cross thead th.c{text-align:center;border-left:1px solid var(--line)}
+table.wh-tab .wh-corner{font-size:10.5px;text-transform:none;letter-spacing:0}
+table.wh-tab tbody th{font:500 12px/1.3 var(--f-body);text-transform:none;letter-spacing:0;color:var(--ink);background:var(--surface-2)}
+table.wh-tab td.empty{color:var(--line-2);text-align:center}
+table.wh-tab td.tot,table.wh-tab tfoot th{background:var(--sunk);font-weight:600;color:var(--ink)}
+table.wh-tab tfoot th{font:600 12px/1.3 var(--f-body);text-transform:none;letter-spacing:0}
+table.wh-tab td.grand{color:var(--accent)}
+table.wh-tab td.in,table.wh-tab tr.in td{background:color-mix(in srgb,var(--s2) 16%,var(--surface));color:var(--ink)}
+table.wh-tab th.on{background:color-mix(in srgb,var(--s2) 22%,var(--surface-2))}
+table.wh-tab tr.alt td{background:color-mix(in srgb,var(--sunk) 55%,transparent)}
+table.wh-tab tr.warnrow td{background:var(--bad-soft)}
+table.wh-tab td.bad{color:var(--bad);font-weight:600}
+table.wh-tab td.up{color:var(--good)} table.wh-tab td.down{color:var(--bad)}
+table.wh-tab td.bits{color:var(--mute)}
+.wh-pick{appearance:none;border:1px dashed var(--line-2);background:transparent;color:inherit;font:inherit;padding:2px 6px;border-radius:5px;cursor:pointer}
+.wh-pick:hover{border-color:var(--s2);color:var(--ink)}
+.wh-pick[aria-pressed="true"]{border-style:solid;border-color:var(--s2);background:color-mix(in srgb,var(--s2) 18%,var(--surface));color:var(--ink)}
+.wh-all{color:var(--mute);font:500 11.5px/1 var(--f-mono)}
+.wh-realnull{color:var(--bad);font:600 11.5px/1 var(--f-mono)}
+.wh-bugs td{white-space:normal;vertical-align:top}
+.wh-code{margin:0;font:400 11.5px/1.45 var(--f-mono);white-space:pre;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;max-width:360px;overflow:auto}
+.wh-problem{margin-top:6px;font-size:12px;color:var(--bad);max-width:360px}
+
+/* checks and notes */
+.wh-checks{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.wh-check{font-size:13px}
+.wh-check.ok b{color:var(--good)} .wh-check.bad b{color:var(--bad)}
+.wh-notes{display:grid;gap:6px;padding:10px 12px;border-left:3px solid var(--accent-line);background:var(--surface-2);border-radius:0 var(--r) var(--r) 0;font-size:13px;color:var(--ink-2)}
+.wh-notes.warn{border-left-color:var(--bad);background:var(--bad-soft);margin-top:10px}
+
+/* cards and two-column layouts */
+.wh-two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;align-items:start}
+.wh-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
+.wh-card{display:grid;gap:6px;align-content:start;border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface-2);min-width:0}
+.wh-card p{font-size:12.5px;color:var(--ink-2)}
+.wh-big{font:650 22px/1 var(--f-display)}
+.wh-ok{color:var(--good);font-weight:600;font-size:13px} .wh-bad{color:var(--bad);font-weight:600;font-size:13px}
+@media (max-width:860px){.wh-two{grid-template-columns:1fr}}
+
+/* lattice and schema diagrams */
+.wh-latbox{min-width:0}
+svg.wh-lat,svg.wh-schema{display:block;width:100%;height:auto;font-family:var(--f-body)}
+svg.wh-lat .wh-edge{stroke:var(--line-2);stroke-width:1.1}
+svg.wh-lat .wh-edge.on{stroke:var(--accent);stroke-width:2.6}
+svg.wh-lat .wh-node rect{fill:var(--surface-2);stroke:var(--line-2);stroke-width:1.2}
+svg.wh-lat .wh-node .l1{font:600 11px var(--f-mono);fill:var(--ink)}
+svg.wh-lat .wh-node .l2{font:500 10px var(--f-mono);fill:var(--mute)}
+svg.wh-lat .wh-node.off{opacity:.55}
+svg.wh-lat .wh-node.on rect{fill:var(--accent-soft);stroke:var(--accent)}
+svg.wh-lat .wh-node.need rect{stroke:var(--s4);stroke-width:2.6;stroke-dasharray:4 3}
+svg.wh-lat .wh-node.final rect{fill:color-mix(in srgb,var(--s2) 22%,var(--surface));stroke:var(--s2);stroke-width:2.4}
+svg.wh-lat .wh-node[role="button"]:hover rect,svg.wh-lat .wh-node[role="button"]:focus rect{stroke-width:2.4;stroke:var(--ink-2)}
+svg.wh-lat .wh-node:focus{outline:none}
+svg.wh-schema .wh-edge{stroke:var(--accent-line);stroke-width:2}
+svg.wh-schema .wh-key{font:500 10.5px var(--f-mono);fill:var(--mute)}
+svg.wh-schema .wh-table rect{fill:var(--surface-2);stroke:var(--line-2)}
+svg.wh-schema .wh-table.fact rect{fill:var(--accent-soft);stroke:var(--accent)}
+svg.wh-schema .tn{font:650 13px var(--f-body);fill:var(--ink)}
+svg.wh-schema .cn{font:500 11px var(--f-mono);fill:var(--ink-2)}
+
+/* plots and illustrations */
+svg.plot .wh-bar{stroke:none;opacity:.88}
+svg.plot .wh-bar.s1{fill:var(--s1)} svg.plot .wh-bar.s2{fill:var(--s2)} svg.plot .wh-bar.s3{fill:var(--s3)} svg.plot .wh-bar.s4{fill:var(--s4)}
+svg.plot .wh-acc{stroke:var(--accent);stroke-width:2.6}
+svg.plot .wh-band{fill:var(--sunk);opacity:.7}
+svg.ill .wh-frame{fill:color-mix(in srgb,var(--s2) 14%,transparent);stroke:var(--s2);stroke-width:1.6}
+svg.ill .wh-frame.alt{fill:color-mix(in srgb,var(--s1) 14%,transparent);stroke:var(--s1)}

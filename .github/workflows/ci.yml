@@ -61,7 +61,7 @@ jobs:
           done
           echo "lstm_trap job: $status"; test "$status" = done
       - name: Smoke-test every UI view spec against the container
-        run: BASE=http://localhost:7860 NODE_NO_WARNINGS=1 node tools/check_views.mjs spread shape markets crossover agents
+        run: BASE=http://localhost:7860 NODE_NO_WARNINGS=1 node tools/check_views.mjs spread shape markets crossover agents bigdata
       - name: Container logs
         if: always()
         run: docker logs app || true

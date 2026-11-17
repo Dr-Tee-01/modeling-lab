@@ -12,10 +12,11 @@ import shape from './views/shape.js';
 import markets from './views/markets.js';
 import crossover from './views/crossover.js';
 import agents from './views/agents.js';
+import bigdata from './views/bigdata.js';
 
 // The labs (names, order, descriptions, membership) come from the server's catalog; a view keeps
 // its own route (#/spread/sir, #/crossover/dose ...), the lab only decides where it is shown.
-const SPECS = Object.fromEntries([...spread, ...shape, ...markets, ...crossover, ...agents].map(v => [`${v.group}/${v.id}`, v]));
+const SPECS = Object.fromEntries([...spread, ...shape, ...markets, ...crossover, ...agents, ...bigdata].map(v => [`${v.group}/${v.id}`, v]));
 const GROUPS = catalog.labs.labs.map(l => ({ id: l.id, label: l.name, short: l.short || l.name, icon: l.icon, color: l.color, title: l.title, blurb: l.blurb,
   views: l.views.map(k => SPECS[k]).filter(Boolean) }));
 const first = g => `#/${g.views[0].group}/${g.views[0].id}`;

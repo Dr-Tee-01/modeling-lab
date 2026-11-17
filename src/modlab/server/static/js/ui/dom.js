@@ -25,6 +25,7 @@ const P = {
   markets: '<path d="M3 20h18"/><path d="m4 15 4.5-5 3.5 3 7-8"/><path d="M15 5h4v4"/>',
   crossover: '<circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/>',
   agents: '<path d="M4 17c0-3 2-4 4-4h6c2 0 3-1 3-3s-1-3-3-3H9"/><circle cx="8" cy="7" r="1.6"/><path d="M4 17h8"/><circle cx="18.5" cy="17" r="1.8"/>',
+  bigdata: '<ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6M5 11.5v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6"/>',
   api: '<path d="M8 4c-2 0-2.5 1-2.5 3s-.5 4-2.5 5c2 1 2.5 3 2.5 5s.5 3 2.5 3M16 4c2 0 2.5 1 2.5 3s.5 4 2.5 5c-2 1-2.5 3-2.5 5s-.5 3-2.5 3"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',

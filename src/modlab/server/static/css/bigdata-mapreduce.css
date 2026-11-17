@@ -1,0 +1,24 @@
+/* Big Data Lab · mapreduce views (owned by that topic; loaded after app.css). */
+.mr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.mr-grid.wide{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.mr-box{border:1px solid var(--line);border-radius:var(--r);padding:10px;background:var(--surface-2);min-width:0}
+.mr-box h4{margin:0 0 8px;display:flex;justify-content:space-between;gap:8px;align-items:baseline;font:600 13.5px/1.3 var(--f-body);color:var(--ink)}
+.mr-box h4 small{font:500 11.5px/1.3 var(--f-mono);color:var(--mute);text-align:right}
+.mr-box .tbl-wrap{background:var(--surface)}
+.mr-box .tbl-wrap + .tbl-wrap{margin-top:8px}
+.mr-box th,.mr-box td{padding:5px 8px;font-size:12.5px}
+.mr-box td{font-family:var(--f-mono);overflow-wrap:anywhere}
+.mr-box.dead{opacity:.55;border-style:dashed}
+.mr-chips{display:flex;flex-wrap:wrap;gap:5px}
+.mr-chips .chip{font-family:var(--f-mono)}
+.mr-rack + .mr-rack{margin-top:12px}
+.mr-rack .eyebrow{display:block;margin-bottom:6px}
+.mr-empty{color:var(--mute);font-style:italic}
+.mr-note{margin:10px 0 0;font-size:13.5px;color:var(--ink-2)}
+tr.mr-lost td{background:var(--bad-soft)}
+tr.mr-total td{font-weight:600;background:var(--surface-2)}
+.mr-tag-C{color:var(--s1)} .mr-tag-O{color:var(--s2)}
+.chip.mr-r0{background:color-mix(in srgb,var(--s1) 18%,transparent)} .chip.mr-r1{background:color-mix(in srgb,var(--s2) 18%,transparent)}
+.chip.mr-r2{background:color-mix(in srgb,var(--s3) 18%,transparent)} .chip.mr-r3{background:color-mix(in srgb,var(--s4) 18%,transparent)}
+.chip.mr-r4{background:color-mix(in srgb,var(--neutral) 22%,transparent)} .chip.mr-r5{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+svg.ill .mr-pill{font-size:12px}
